@@ -124,16 +124,15 @@ void bootloader_main_loop() {
 
         case STATE_VERIFY_UPDATE: {
             if (flash1_flags.update_ready) {
+                //update flash2 flags
+                flash2_flags.good_to_go = false;
+                flash2_flags.update_ready = true;
+
                 uint64_t fw_header;
                 memcpy(&fw_header, (void*)FLASH1_UPDATE_FW_BASE, BLOCK_SIZE);
                 if (fw_header == flash1_flags.device_id &&
                     fw_header == flash2_flags.device_id) {
                     start_address = FLASH1_UPDATE_FW_BASE;
-
-                    //update flash2 flags
-                    flash2_flags.good_to_go = false;
-                    flash2_flags.update_ready = true;
-
                     current_state = STATE_ERASE_FLASH;
                 } else {
                     current_state = STATE_JUMP_TO_APP;
