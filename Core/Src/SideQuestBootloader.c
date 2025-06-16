@@ -6,31 +6,35 @@ SideQuestBootloader.c v0.00
 */
 
 #include "../Inc/SideQuestBootloader.h"
-#include "main.h"
+#include "main.c"
 
-########################### -- FLAGS -- ##################################
-/*
-Memory Map of Flash 2 Flags:
-Byte 1: Crash flag
-Crash 2: Good-to-go flag (Update needed) - see .h file for definitions
-*/
+// ########################### -- FLAGS -- ##################################
+// /*
+// Memory Map of Flash 2 Flags:
+// Bytes 0-59: Device ID
+// Byte 60: Header Set in Main App
+// Byte 61: Crash flag
+// Crash 62: Good-to-go flag (Update needed) - see .h file for definitions
+// */
 
-// structure of flags:
-// When changing flags: ALWAYS do *flag = NEW_STATUS
+// // structure of flags:
+// // When changing flags: ALWAYS do *flag = NEW_STATUS
 
-PROVIDE(_flash_flags = ORIGIN(FLASH_FLAGS));
-extern const uint8_t _flash_flags[];
+// PROVIDE(_flash_flags = ORIGIN(B1_FLAGS));
+// extern const uint8_t _flash_flags[];
 
-//read flags
-flashread_crash_flag = _flash_flags[0];
-flashread_update_needed = _flash_flags[1];
+// //read flags
+// flashread_crash_flag = _flash_flags[61];
+// flashread_update_needed = _flash_flags[62];
 
-//write flags
-# define FLASH2FLAG_ADDRESS      0x08078000; // 32 KB from the end of Flash Bank 2 - double check w Ben on linker
-uint8_t * flashwrite_crash_flag = (volatile uint8_t*)(FLASH2FLAG_ADDRESS);
-uint8_t * flashwrite_update_needed = (volatile uint8_t*)(FLASH2FLAG_ADDRESS  + 1);
+// //write flags
+// # define FLASH2FLAG_ADDRESS      0x08078000; // 32 KB from the end of Flash Bank 2 - double check w Ben on linker
+// #define EEPROM_PAGE_SIZE      0x800       // 2 KB
+// #define EEPROM_NUM_PAGES      8
+// uint8_t * flashwrite_crash_flag = (volatile uint8_t*)(FLASH2FLAG_ADDRESS + 61);
+// uint8_t * flashwrite_update_needed = (volatile uint8_t*)(FLASH2FLAG_ADDRESS  + 62);
 
-########################### ###############  ##################################
+// ########################### ###############  ##################################
 
 
 // these need to be externs as defined in linker, not defined here
@@ -52,7 +56,13 @@ void SideQuestBootloader(void){
 
     case STATE_INIT:
         // This should be the flash2_flags, where do we set the crash flag?
-       
+        HAL_FLASH_Unlock();
+        uint8_t random_bytes[60];
+        if (generate_random_bytes(random_bytes)){
+
+        }
+
+
         if (flashread_crash_flag == CRASHED) {
             SideQuest_State = STATE_STARTING_READ_FROM_STABLE;
         } else {
@@ -66,7 +76,7 @@ void SideQuestBootloader(void){
 
             uint64_t fw_header;
             memcpy(&fw_header, (void*)UPDATE_PARTITION, HEADER_SIZE);
-            if (fw_header == flash1_flags.device_id &&
+            if (fw_header == deviceID &&
                 fw_header == flash2_flags.device_id) {
                 start_address = FLASH1_UPDATE_FW_BASE;
                 current_state = STATE_ERASE_FLASH;
@@ -159,3 +169,25 @@ void SideQuestBootloader(void){
     }
 }
 
+
+
+
+HAL_StatusTypeDef generate_random_bytes(uint8_t *buffer, uint32_t length) { //length should be 30
+    if (buffer == NULL || length == 0) {
+        return HAL_ERROR;
+    }
+
+    uint32_t random32;
+    for (uint32_t i = 0; i < length; i += 4) {
+        if (HAL_RNG_GenerateRandomNumber(&hrng, &random32) != HAL_OK) {
+            return HAL_ERROR;
+        }
+
+        buffer[i] = random32 & 0xFF;
+        if (i + 1 < length) buffer[i + 1] = (random32 >> 8) & 0xFF;
+        if (i + 2 < length) buffer[i + 2] = (random32 >> 16) & 0xFF;
+        if (i + 3 < length) buffer[i + 3] = (random32 >> 24) & 0xFF;
+    }
+
+    return HAL_OK;
+}
