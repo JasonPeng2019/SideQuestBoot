@@ -1,10 +1,24 @@
 #include <stdio.h>
 #include "stm32l4xx_hal.h"
+#include "../Drivers/UART/UART.c"
 #include <string.h>
 #include <stdbool.h>
 
 uint32_t CRC_accum_length;
 uint32_t success_read_marker;
+
+#define BLOCKSIZE           64U
+#define MAX_TRIES           8
+#define HEADER_SIZE         60
+
+
+@define GOOD_TO_GO      1
+#define UPDATE_NEEDED   0
+
+
+#define CRASHED         1
+#define NO_CRASH        0
+
 
 typedef enum {
     STATE_INIT,

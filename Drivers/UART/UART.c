@@ -1,4 +1,5 @@
 #include "stdio.h"
+#include "main.c"
 #define HAL_MAX_DELAY 1000
 
 int __io_putchar(int ch) {
