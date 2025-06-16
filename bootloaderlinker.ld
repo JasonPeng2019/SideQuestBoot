@@ -23,15 +23,32 @@ ENTRY(Reset_Handler)
 /* Memory Regions */
 MEMORY
 {
-  BOOTLOADER (rx)  : ORIGIN = 0x08000000, LENGTH = 32K
-  MAIN_APP   (rx)  : ORIGIN = 0x08008000, LENGTH = 200K
-  BACKUP_APP (rx)  : ORIGIN = 0x08040000, LENGTH = 200K
-  UPDATE_IMG (rx)  : ORIGIN = 0x08080000, LENGTH = 200K
-  B1_FLAGS   (rw)  : ORIGIN = 0x080C0000, LENGTH = 8K      /* Removed - using backup RAM instead */
-  B2_FLAGS   (rw)  : ORIGIN = 0x080C2000, LENGTH = 8K      /* Removed - using backup RAM instead */
-  RAM        (xrw) : ORIGIN = 0x20000000, LENGTH = 96K
-  RAM2       (xrw) : ORIGIN = 0x10000000, LENGTH = 32K
-  BKPSRAM    (rw)  : ORIGIN = 0x40024000, LENGTH = 4K      /* Added for persistent boot flags */
+  /* === FLASH BANK 1 === */
+  /* MAIN_APPLICATION occupies the full 512 KB of Bank 1 */
+  MAIN_APP   (rx)  : ORIGIN = 0x08000000, LENGTH = 512K
+
+  /* === FLASH BANK 2 === */
+  /* BOOTLOADER occupies the first 32 KB of Bank 2 */
+  BOOTLOADER (rx)  : ORIGIN = 0x08080000, LENGTH = 32K
+
+  /* UPDATE_IMG follows BOOTLOADER (32K offset), 240 KB */
+  UPDATE_IMG (rx)  : ORIGIN = 0x08088000, LENGTH = 240K
+
+  /* BACKUP_APP follows UPDATE_IMG (240K offset), 240 KB */
+  BACKUP_APP (rx)  : ORIGIN = 0x080C8000, LENGTH = 240K
+
+  /*
+   * Note:
+   * 0x08080000 — FLASH Bank 2 Start
+   *   +0x8000   — BOOTLOADER
+   *   +0x3C000  — UPDATE_IMG
+   *   +0x3C000  — BACKUP_APP
+   * => 0x08080000 + 32K + 240K + 240K = 0x08100000 (end of Bank 2, 512 KB total)
+   */
+
+  /* === SRAM === */
+  RAM        (xrw) : ORIGIN = 0x20000000, LENGTH = 96K     /* Main SRAM */
+  RAM2       (xrw) : ORIGIN = 0x10000000, LENGTH = 32K     /* Additional RAM */
 }
 
 /* Heap/Stack Sizes (2KB each by default) */
