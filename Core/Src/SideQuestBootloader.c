@@ -51,8 +51,11 @@ SideQuestBootloader.c v0.00
 // #define FLASH1_STABLE_FW_BASE  0x08020000U  // Stable firmware partition
 // #define FLASH1_FLAGS_BASE      0x08030000U  // Flags partition
 uint32_t copy_firmware_addr = firmware_address;
+//address of the firmware to be copied
 uint32_t *pfirmware_address = (uint32_t *)copy_firmware_addr;
+//pointer at the address in memory where we have successfully copied`
 uint32_t *psuccess_read_marker = (uint32_t *)success_read_marker;
+//pointer at the start of the main program 
 uint32_t *pflash2_start = (uint32_t *)FLASH2_START;
 
 Bootstate SideQuest_State;
@@ -123,12 +126,23 @@ void SideQuestBootloader(void){
         bool success = false;
         int retries = 0;
         while (retries < MAX_TRIES && !success) {
-            if (write_flash64(APP_FLASH_BASE + cursor, buffer)) {
+            //make a copy of pfirmware_address and use it to get the next 64 bits of data
+            uint32_t *copy_pfirmware_address = pfirmware_address;
+            uint64_t data64 = ((uint64_t)copy_pfirmware_address[1] << 32) | copy_pfirmware_address[0];
+            if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD, pflash2_start, data64);) {
                 uint32_t crc1 = HAL_CRC_Accumulate(&hcrc, psuccess_read_marker, (BLOCKSIZE / 8) / (sizeof(uint32_t)));
                 uint32_t crc2 = HAL_CRC_Accumulate(&hcrc, pflash2_start, (BLOCKSIZE / 8) / (sizeof(uint32_t)));
+                #ifdef DEBUG_MODE
+                    uint32_t crc1 = HAL_CRC_Calculate(&hcrc, psuccess_read_marker, (BLOCKSIZE / 8) / (sizeof(uint32_t)));
+                    uint32_t crc2 = HAL_CRC_Calculate(&hcrc, pflash2_start, (BLOCKSIZE / 8) / (sizeof(uint32_t)));
+                #endif
                 if (crc1 == crc2) {
-                    success_read_marker += BLOCKSIZE;
-                    cursor += BLOCKSIZE;
+                    // if crc check passes increment pointers in each flash
+                    //not sure if pfirmware_address and psuccess_read_marker are both needed since flash write just
+                    //needs the starting pointer and data
+                    pfirmware_address += BLOCKSIZE / (sizeof(u_int32_t));
+                    psuccess_read_marker += BLOCKSIZE / (sizeof(uint32_t));
+                    pflash2_start += BLOCKSIZE / (sizeof(uint32_t));
                     success = true;
                 }
             }
