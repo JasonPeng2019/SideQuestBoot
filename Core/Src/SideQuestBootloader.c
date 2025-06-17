@@ -81,7 +81,7 @@ void SideQuestBootloader(void){
                 uint8_t fw_header[30];
                 memcpy(fw_header, UPDATE_IMAGE_START, 30);
                 uint8_t id_header[30];
-                if (EEPROM_ReadByte(PAGE_ID + 1, id_header, &SideQuest->Boot_I2C_Handle)){
+                if (EEPROM_Read(PAGE_ID + 1, id_header, 30, &SideQuest->Boot_I2C_Handle)){
                     if (fw_header == id_header){
                         firmware_address = UPDATE_IMAGE_START;
                         SideQuest_State = STATE_ERASE_FLASH;
