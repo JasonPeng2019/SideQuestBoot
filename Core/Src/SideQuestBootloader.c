@@ -20,7 +20,8 @@ static uint32_t * pSuccess_read_marker;
 //pointer at the address of dest we have successfully copied
 static uint32_t * pSucess_write_marker;
 Bootstate SideQuest_State;
-tBootloader SideQuest;
+static tBootloader SideQuest_storage;
+tBootloader *SideQuest = &SideQuest_storage;
 
 void SideQuestBootloader(void){    
     
