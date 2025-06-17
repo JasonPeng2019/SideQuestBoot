@@ -13,10 +13,10 @@ uint32_t firmware_address;
 #define MAX_TRIES           8
 #define HEADER_SIZE         60
 
-#define FLASH2START         0x08080000
+#define FLASH2_START         0x08080000
 
-uint32_t *success_read_marker_ptr;
-uint32_t *firmware_address_ptr;
+uint32_t *psuccess_read_marker;
+uint32_t *pfirmware_address;
 
 @define GOOD_TO_GO      1
 #define UPDATE_NEEDED   0

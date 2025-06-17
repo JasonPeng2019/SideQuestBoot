@@ -50,9 +50,10 @@ SideQuestBootloader.c v0.00
 // #define FLASH1_UPDATE_FW_BASE  0x08010000U  // Firmware update partition
 // #define FLASH1_STABLE_FW_BASE  0x08020000U  // Stable firmware partition
 // #define FLASH1_FLAGS_BASE      0x08030000U  // Flags partition
-
-uint32_t ptr = (uint32_t *)firmware_address; // .c file when you initialize ---- firmware address for reading the data
-#DEFINE (uint_t *)0x08080000 // firmwarer address for writing/programming data
+uint32_t copy_firmware_addr = firmware_address;
+uint32_t *pfirmware_address = (uint32_t *)copy_firmware_addr;
+uint32_t *psuccess_read_marker = (uint32_t *)success_read_marker;
+uint32_t *pflash2_start = (uint32_t *)FLASH2_START;
 
 Bootstate SideQuest_State;
 
@@ -123,8 +124,8 @@ void SideQuestBootloader(void){
         int retries = 0;
         while (retries < MAX_TRIES && !success) {
             if (write_flash64(APP_FLASH_BASE + cursor, buffer)) {
-                uint32_t crc1 = HAL_CRC_Accumulate(&hcrc, success_read_marker, (BLOCKSIZE / 8) / (sizeof(uint32_t)));
-                uint32_t crc2 = HAL_CRC_Accumulate(&hcrc, success_read_marker, (BLOCKSIZE / 8) / (sizeof(uint32_t)));
+                uint32_t crc1 = HAL_CRC_Accumulate(&hcrc, psuccess_read_marker, (BLOCKSIZE / 8) / (sizeof(uint32_t)));
+                uint32_t crc2 = HAL_CRC_Accumulate(&hcrc, pflash2_start, (BLOCKSIZE / 8) / (sizeof(uint32_t)));
                 if (crc1 == crc2) {
                     success_read_marker += BLOCKSIZE;
                     cursor += BLOCKSIZE;
@@ -143,8 +144,8 @@ void SideQuestBootloader(void){
     }
 
     case STATE_FINAL_CHECKSUM: {
-        uint32_t crc1 = HAL_CRC_Accumulate(&hcrc, start_address, cursor);
-        uint32_t crc2 = HAL_CRC_Accumulate(&hcrc, APP_FLASH_BASE, cursor);
+        uint32_t crc1 = HAL_CRC_Accumulate(&hcrc, pfirmware_address, cursor);
+        uint32_t crc2 = HAL_CRC_Accumulate(&hcrc, pflash2_start, cursor);
         HAL_FLASH_Lock();  // Done writing
         if (crc1 == crc2) {
             // Need to properly change flags with the eeprom stuff
