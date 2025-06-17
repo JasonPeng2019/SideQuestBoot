@@ -107,7 +107,7 @@ int main(void)
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
 
-  Bootloader_init(hi2c1, huart2);
+  Bootloader_init(&hi2c1, &huart2);
 
   /* USER CODE END 2 */
 
