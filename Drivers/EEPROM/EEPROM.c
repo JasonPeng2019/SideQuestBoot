@@ -143,7 +143,7 @@ bool EEPROM_Write_Flag(uint8_t *data, uint8_t page_start) {
     return true;
 }
 
-bool EEPROM_Read_Flag(uint8_t *flag, uint8_t page_start) {
+bool EEPROM_Read_Flag(uint8_t * flag, uint8_t page_start) {
     uint64_t highest_page_count = 0;
     int active_page_index = 0;
     // Step 1: Determine the page with the highest write count

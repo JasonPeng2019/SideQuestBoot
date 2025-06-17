@@ -8,12 +8,16 @@ SideQuestBootloader.c v0.00
 #include "../Inc/SideQuestBootloader.h"
 #include "main.c"
 
+/* Define start and end symbols for UPDATE_IMG */
+// __update_img_start__ = ORIGIN(UPDATE_IMG);
+// __update_img_end__   = ORIGIN(UPDATE_IMG) + LENGTH(UPDATE_IMG);
+
 // ########################### -- FLAGS -- ##################################
 // /*
 // Memory Map of Flash 2 Flags:
-// Bytes 0-59: Device ID
-// Byte 60: Header Set in Main App
-// Byte 61: Crash flag
+// Bytes 0-60 of Page 1: Header Set in Main App; Device ID
+// Page 2: Header Set in Main App
+// Page 3: Crash flag
 // Crash 62: Good-to-go flag (Update needed) - see .h file for definitions
 // */
 

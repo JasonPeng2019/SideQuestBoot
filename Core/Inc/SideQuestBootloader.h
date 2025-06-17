@@ -20,6 +20,13 @@ uint32_t success_read_marker;
 #define NO_CRASH        0
 
 
+#define UPDATE_IMAGE_START      ((uint32_t)&__update_img_start__) // fill in here
+#define STABLE_IMAGE_START       ((uint32_t)&__backup_app_start__)// fill in here
+
+#define PAGE_ID                      0
+#define PAGE_CRASH_FLAG              1
+#define UPDATE_NEEDED_FLAG           4  
+
 typedef enum {
     STATE_INIT,
     STATE_VERIFY_UPDATE,
