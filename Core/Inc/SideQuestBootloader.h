@@ -5,14 +5,20 @@
 #include <string.h>
 #include <stdbool.h>
 
-uint32_t CRC_accum_length;
+uint32_t cursor;
 uint32_t success_read_marker;
+uint32_t firmware_address;
+
 
 #define BLOCKSIZE           64U
 #define MAX_TRIES           8
 #define HEADER_SIZE         60
 #define BANK_SIZE           524288 // bank size in bytes
 
+#define FLASH2_START         0x08080000
+
+uint32_t *psuccess_read_marker;
+uint32_t *pfirmware_address;
 
 #define GOOD_TO_GO      1
 #define UPDATE_NEEDED   0
@@ -54,5 +60,6 @@ bool SideQuestBoot_write_block(uint32_t address, uint8_t * data, uint32_t size);
 bool SideQuestBoot_erase_flash_partition(uint32_t base_addr, uint32_t size);
 uint32_t SideQuestBoot_calculate_crc(uint32_t addr, uint32_t length);
 uint32_t SideQuestBoot_accumulate_crc(uint32_t addr, uint32_t prev_accum_crc); //prev_crc is the crc of the previous accumulated blocks
+void SideQuestBoot_init_crc();
 
 
