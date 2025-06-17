@@ -18,24 +18,32 @@
 ******************************************************************************
 */
 
+/* Entry Point */
 ENTRY(Reset_Handler)
 
-/* Memory Regions */
+/* Stack pointer initialization */
+_estack = ORIGIN(RAM) + LENGTH(RAM);
+
+/* Heap and Stack sizes */
+_Min_Heap_Size = 0x200;    /* 512 Bytes */
+_Min_Stack_Size = 0x400;   /* 1 KB */
+
+/* === MEMORY REGIONS === */
 MEMORY
 {
   /* === FLASH BANK 1 === */
   /* MAIN_APPLICATION occupies the full 512 KB of Bank 1 */
-  MAIN_APP   (rx)  : ORIGIN = 0x08000000, LENGTH = 512K
+  MAIN_APP   (rw)  : ORIGIN = 0x08000000, LENGTH = 512K
 
   /* === FLASH BANK 2 === */
   /* BOOTLOADER occupies the first 32 KB of Bank 2 */
   BOOTLOADER (rx)  : ORIGIN = 0x08080000, LENGTH = 32K
 
   /* UPDATE_IMG follows BOOTLOADER (32K offset), 240 KB */
-  UPDATE_IMG (rx)  : ORIGIN = 0x08088000, LENGTH = 240K
+  UPDATE_IMG (r)  : ORIGIN = 0x08088000, LENGTH = 240K
 
   /* BACKUP_APP follows UPDATE_IMG (240K offset), 240 KB */
-  BACKUP_APP (rx)  : ORIGIN = 0x080C8000, LENGTH = 240K
+  BACKUP_APP (r)  : ORIGIN = 0x080C8000, LENGTH = 240K
 
   /*
    * Note:
@@ -51,129 +59,150 @@ MEMORY
   RAM2       (xrw) : ORIGIN = 0x10000000, LENGTH = 32K     /* Additional RAM */
 }
 
-/* Heap/Stack Sizes (2KB each by default) */
-_Min_Heap_Size  = 0x800;
-_Min_Stack_Size = 0x800;
-
-/* Symbol Exports */
-__bootloader_start__ = ORIGIN(BOOTLOADER);
-__bootloader_end__   = ORIGIN(BOOTLOADER) + LENGTH(BOOTLOADER);
-__main_app_start__   = ORIGIN(MAIN_APP);
-__main_app_end__     = ORIGIN(MAIN_APP) + LENGTH(MAIN_APP);
-__ram2_start__       = ORIGIN(RAM2);
-__ram2_end__         = ORIGIN(RAM2) + LENGTH(RAM2);
-_estack              = ORIGIN(RAM) + LENGTH(RAM);  /* Explicit stack top for Cortex-M */
-
+/* Sections */
 SECTIONS
 {
-  /* Interrupt Vector Table (256B aligned) */
+  /* Exported symbols for memory regions */
+  __main_app_start__     = ORIGIN(MAIN_APP);
+  __main_app_end__       = ORIGIN(MAIN_APP) + LENGTH(MAIN_APP);
+  __main_app_size__      = LENGTH(MAIN_APP);
+
+  __bootloader_start__   = ORIGIN(BOOTLOADER);
+  __bootloader_size__    = LENGTH(BOOTLOADER);
+
+  __update_img_start__   = ORIGIN(UPDATE_IMG);
+  __update_img_size__    = LENGTH(UPDATE_IMG);
+
+  __backup_app_start__   = ORIGIN(BACKUP_APP);
+  __backup_app_size__    = LENGTH(BACKUP_APP);
+
+  __ram_start__          = ORIGIN(RAM);
+  __ram_size__           = LENGTH(RAM);
+  __ram2_start__         = ORIGIN(RAM2);
+  __ram2_size__          = LENGTH(RAM2);
+
+  /* The startup code into BOOTLOADER flash region */
   .isr_vector :
   {
-    . = ALIGN(256);
-    KEEP(*(.isr_vector))
     . = ALIGN(4);
-  } > BOOTLOADER
+    KEEP(*(.isr_vector)) /* Startup code */
+    . = ALIGN(4);
+  } >BOOTLOADER
 
-  /* Code and RO Data */
+  /* The program code and other data into BOOTLOADER */
   .text :
   {
-    *(.text .text* .glue_7* .eh_frame)
-    KEEP(*(.init)) KEEP(*(.fini))
+    . = ALIGN(4);
+    *(.text)           /* .text sections (code) */
+    *(.text*)          /* .text* sections (code) */
+    *(.glue_7)
+    *(.glue_7t)
+    *(.eh_frame)
+
+    KEEP (*(.init))
+    KEEP (*(.fini))
+
     . = ALIGN(4);
     _etext = .;
-  } > BOOTLOADER
+  } >BOOTLOADER
 
-  .rodata : { *(.rodata .rodata*) } > BOOTLOADER
-
-  /* ARM Exception Handling */
-  .ARM.extab : { *(.ARM.extab*) } > BOOTLOADER
-  .ARM.exidx :
+  .rodata :
   {
+    . = ALIGN(4);
+    *(.rodata)
+    *(.rodata*)
+    . = ALIGN(4);
+  } >BOOTLOADER
+
+  .ARM.extab :
+  {
+    . = ALIGN(4);
+    *(.ARM.extab* .gnu.linkonce.armextab.*)
+    . = ALIGN(4);
+  } >BOOTLOADER
+
+  .ARM :
+  {
+    . = ALIGN(4);
     __exidx_start = .;
     *(.ARM.exidx*)
     __exidx_end = .;
-  } > BOOTLOADER
+    . = ALIGN(4);
+  } >BOOTLOADER
 
-  /* C++ Constructors/Destructors */
   .preinit_array :
   {
-    PROVIDE_HIDDEN(__preinit_array_start = .);
-    KEEP(*(.preinit_array*))
-    PROVIDE_HIDDEN(__preinit_array_end = .);
-  } > BOOTLOADER
+    . = ALIGN(4);
+    PROVIDE_HIDDEN (__preinit_array_start = .);
+    KEEP (*(.preinit_array*))
+    PROVIDE_HIDDEN (__preinit_array_end = .);
+    . = ALIGN(4);
+  } >BOOTLOADER
 
   .init_array :
   {
-    PROVIDE_HIDDEN(__init_array_start = .);
-    KEEP(*(SORT(.init_array.*))) KEEP(*(.init_array*))
-    PROVIDE_HIDDEN(__init_array_end = .);
-  } > BOOTLOADER
+    . = ALIGN(4);
+    PROVIDE_HIDDEN (__init_array_start = .);
+    KEEP (*(SORT(.init_array.*)))
+    KEEP (*(.init_array*))
+    PROVIDE_HIDDEN (__init_array_end = .);
+    . = ALIGN(4);
+  } >BOOTLOADER
 
-  /* Initialized Data (copied to RAM at startup) */
+  .fini_array :
+  {
+    . = ALIGN(4);
+    PROVIDE_HIDDEN (__fini_array_start = .);
+    KEEP (*(SORT(.fini_array.*)))
+    KEEP (*(.fini_array*))
+    PROVIDE_HIDDEN (__fini_array_end = .);
+    . = ALIGN(4);
+  } >BOOTLOADER
+
+  /* Used by the startup to initialize data */
   _sidata = LOADADDR(.data);
+
   .data :
   {
     . = ALIGN(4);
     _sdata = .;
-    *(.data .data*)
-    *(.RamFunc*)        /* Explicit placement of RAM functions */
+    *(.data)
+    *(.data*)
+    *(.RamFunc)
+    *(.RamFunc*)
     . = ALIGN(4);
     _edata = .;
-  } > RAM AT > BOOTLOADER
+  } >RAM AT> BOOTLOADER
 
-  /* Uninitialized Data (BSS) */
   .bss :
   {
     . = ALIGN(4);
     _sbss = .;
     __bss_start__ = _sbss;
-    *(.bss .bss* COMMON)
+    *(.bss)
+    *(.bss*)
+    *(COMMON)
     . = ALIGN(4);
     _ebss = .;
     __bss_end__ = _ebss;
-  } > RAM
+  } >RAM
 
-  /* Persistent Data (survives soft reset) */
-  .noinit (NOLOAD) :
-  {
-    *(.noinit*)
-  } > RAM
-
-  /* Heap (grows upward) */
-  ._user_heap :
+  ._user_heap_stack :
   {
     . = ALIGN(8);
-    PROVIDE(end = .);
-    PROVIDE(_end = .);
-    __heap_start__ = .;
-    __heap_end__   = _estack - _Min_Stack_Size;
-    ASSERT(__heap_end__ > __heap_start__, "Heap too large, would collide with stack!");
-  } > RAM
-
-  /* Stack (at top of RAM, grows downward) */
-  ._user_stack :
-  {
+    PROVIDE ( end = . );
+    PROVIDE ( _end = . );
+    . = . + _Min_Heap_Size;
+    . = . + _Min_Stack_Size;
     . = ALIGN(8);
-    __stack_limit__ = _estack - _Min_Stack_Size;
-    ASSERT(__stack_limit__ >= _ebss, "Stack collides with heap/BSS!");
-    . = _estack;
-  } > RAM
+  } >RAM
 
-  /* Core-Coupled RAM (DMA buffers, etc.) */
-  .ram2_section (NOLOAD) :
+  /DISCARD/ :
   {
-    . = ALIGN(4);
-    *(.ram2_buffer*)    /* Explicitly named section for DMA/HSRAM */
-    *(.ram2_section*)
-    . = ALIGN(4);
-  } > RAM2
+    libc.a ( * )
+    libm.a ( * )
+    libgcc.a ( * )
+  }
 
-  /* Boot Flags in Backup RAM (persists across resets) */
-  .boot_flags (NOLOAD) :
-  {
-    KEEP(*(.boot_flags))  /* Use this section in code for flags */
-  } > BKPSRAM
-
-  /* Discard Unnecessary Sections */
-  /DISCARD/ : { *(.comment) *(.note*) }
+  .ARM.attributes 0 : { *(.ARM.attributes) }
 }
