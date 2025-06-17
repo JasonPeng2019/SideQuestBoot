@@ -127,7 +127,7 @@ void SideQuestBootloader(void){
         int retries = 0;
         while (retries < MAX_TRIES && !success) {
             //make a copy of pfirmware_address and use it to get the next 64 bits of data
-            uint32_t *copy_pfirmware_address = pfirmware_address;
+            uint32_t *copy_pfirmware_address = psuccess_read_marker;
             uint64_t data64 = ((uint64_t)copy_pfirmware_address[1] << 32) | copy_pfirmware_address[0];
             if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD, pflash2_start, data64);) {
                 uint32_t crc1 = HAL_CRC_Accumulate(&hcrc, psuccess_read_marker, (BLOCKSIZE / 8) / (sizeof(uint32_t)));
@@ -138,9 +138,6 @@ void SideQuestBootloader(void){
                 #endif
                 if (crc1 == crc2) {
                     // if crc check passes increment pointers in each flash
-                    //not sure if pfirmware_address and psuccess_read_marker are both needed since flash write just
-                    //needs the starting pointer and data
-                    pfirmware_address += BLOCKSIZE / (sizeof(u_int32_t));
                     psuccess_read_marker += BLOCKSIZE / (sizeof(uint32_t));
                     pflash2_start += BLOCKSIZE / (sizeof(uint32_t));
                     success = true;
@@ -158,16 +155,30 @@ void SideQuestBootloader(void){
     }
 
     case STATE_FINAL_CHECKSUM: {
-        uint32_t crc1 = HAL_CRC_Accumulate(&hcrc, pfirmware_address, cursor);
-        uint32_t crc2 = HAL_CRC_Accumulate(&hcrc, pflash2_start, cursor);
-        HAL_FLASH_Lock();  // Done writing
-        if (crc1 == crc2) {
-            // Need to properly change flags with the eeprom stuff
-            flash2_flags.good_to_go = true;
-            flash2_flags.update_ready = false;
-            current_state = STATE_JUMP_TO_APP;
-        } else {
-            current_state = STATE_ERROR;
+        bool success = false;
+        int retries = 0;
+        while (retries < MAX_TRIES && !success) {
+            //make a copy of pfirmware_address and use it to get the next 64 bits of data
+            uint32_t *copy_pfirmware_address = psuccess_read_marker;
+            uint64_t data64 = ((uint64_t)copy_pfirmware_address[1] << 32) | copy_pfirmware_address[0];
+            if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD, pflash2_start, data64);) {
+                uint32_t crc1 = HAL_CRC_Accumulate(&hcrc, psuccess_read_marker, (BLOCKSIZE / 8) / (sizeof(uint32_t)));
+                uint32_t crc2 = HAL_CRC_Accumulate(&hcrc, pflash2_start, (BLOCKSIZE / 8) / (sizeof(uint32_t)));
+                #ifdef DEBUG_MODE
+                    uint32_t crc1 = HAL_CRC_Calculate(&hcrc, psuccess_read_marker, (BLOCKSIZE / 8) / (sizeof(uint32_t)));
+                    uint32_t crc2 = HAL_CRC_Calculate(&hcrc, pflash2_start, (BLOCKSIZE / 8) / (sizeof(uint32_t)));
+                #endif
+                HAL_FLASH_Lock();  // Done writing
+                if (crc1 == crc2) {
+                    // Need to properly change flags with the eeprom write flag
+                    flash2_flags.good_to_go = true;
+                    flash2_flags.update_ready = false;
+                    current_state = STATE_JUMP_TO_APP;
+                } else {
+                    current_state = STATE_ERROR;
+                }
+            }
+            retries++;
         }
         break;
     }
