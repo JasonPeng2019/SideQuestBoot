@@ -122,8 +122,8 @@ void SideQuestBootloader(void){
         int retries = 0;
         while (retries < MAX_RETRIES && !success) {
             if (write_flash64(APP_FLASH_BASE + cursor, buffer)) {
-                uint32_t crc1 = calculate_crc(start_address, cursor + BLOCK_SIZE);
-                uint32_t crc2 = calculate_crc(APP_FLASH_BASE, cursor + BLOCK_SIZE);
+                uint32_t crc1 = HAL_CRC_Calculate(&CRC_HANDLE, start_address, cursor + BLOCKSIZE);
+                uint32_t crc2 = HAL_CRC_Calculate(&CRC_HANDLE, start_address, cursor + BLOCKSIZE);
                 if (crc1 == crc2) {
                     cursor += BLOCK_SIZE;
                     success = true;
@@ -141,8 +141,8 @@ void SideQuestBootloader(void){
     }
 
     case STATE_FINAL_CHECKSUM: {
-        uint32_t crc1 = calculate_crc(start_address, cursor);
-        uint32_t crc2 = calculate_crc(APP_FLASH_BASE, cursor);
+        uint32_t crc1 = HAL_CRC_Calculate(&CRC_HANDLE, start_address, cursor);
+        uint32_t crc2 = HAL_CRC_Calculate(&CRC_HANDLE, APP_FLASH_BASE, cursor);
         HAL_FLASH_Lock();  // Done writing
         if (crc1 == crc2) {
             // Optionally update flag in flash2 that update completed
