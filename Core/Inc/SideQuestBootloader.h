@@ -45,14 +45,14 @@ typedef enum {
 } BootState;
 
 typedef struct {
-    UART_HandleTypeDef  Boot_UART_Handle;
-    I2C_HandleTypeDef   Boot_I2C_Handle;
+    UART_HandleTypeDef *  Boot_UART_Handle;
+    I2C_HandleTypeDef *   Boot_I2C_Handle;
 } tBootloader;
 
 typedef void (*pFunction)(void);
 
 
-void Bootloader_init(I2C_HandleTypeDef i2c_handle, UART_HandleTypeDef UART_Handle);
+void Bootloader_init(I2C_HandleTypeDef *i2c_handle, UART_HandleTypeDef *UART_Handle);
 void SideQuestBootloader(void);
 bool generate_random_bytes(uint8_t *buffer, uint32_t length);
 void jump_to_app(uint32_t address_start);
