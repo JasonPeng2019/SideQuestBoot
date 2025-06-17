@@ -35,7 +35,7 @@ bool EEPROM_ReadByte(uint16_t memAddress, uint8_t *data) {
     addr[1] = (uint8_t)(memAddress & 0xFF);
 
     if (HAL_I2C_Master_Transmit(&hi2c1, M24_I2C_ADDR, addr, 2, EEPROM_TIMEOUT) != HAL_OK)
-        return HAL_ERROR;
+        return false;
 
     return HAL_I2C_Master_Receive(&hi2c1, M24_I2C_ADDR, data, 1, EEPROM_TIMEOUT) == HAL_OK;
 }
@@ -49,7 +49,7 @@ bool EEPROM_ReadByte(uint16_t memAddress, uint8_t *data) {
  */
 bool EEPROM_WritePage(uint16_t memAddress, uint8_t *data, uint16_t len) {
     if (len > EEPROM_PAGE_SIZE || ((memAddress % EEPROM_PAGE_SIZE) + len) > EEPROM_PAGE_SIZE)
-        return HAL_ERROR; // prevent crossing page boundary
+        return false; // prevent crossing page boundary
 
     uint8_t buffer[EEPROM_PAGE_SIZE + 2];
     buffer[0] = memAddress >> 8;
@@ -72,14 +72,14 @@ bool EEPROM_Read(uint16_t memAddress, uint8_t *data, uint16_t len) {
     addr[1] = (uint8_t)(memAddress & 0xFF);
 
     if (HAL_I2C_Master_Transmit(&hi2c1, M24_I2C_ADDR, addr, 2, EEPROM_TIMEOUT) != HAL_OK)
-        return HAL_ERROR;
+        return false;
 
     return HAL_I2C_Master_Receive(&hi2c1, M24_I2C_ADDR, data, len, EEPROM_TIMEOUT) == HAL_OK;
 }
 
 /**
  * @brief Polls EEPROM for ACK until it's ready or timeout occurs.
- * @return: if EEPROM is ready
+ * @return: if EEPROM is ready or not
  */
 bool EEPROM_WaitReady(void) {
     uint32_t tickstart = HAL_GetTick();
@@ -89,56 +89,6 @@ bool EEPROM_WaitReady(void) {
     }
     return true;
 }
-
-/**
- * @brief: Writes to the flag value at a certain page. Pages should be incremented 3 pages apart per flag.
- */
-
-bool EEPROM_Write_Flag(uint8_t *data, uint8_t page_start) {
-    uint16_t base = page_start * EEPROM_PAGE_SIZE;
-    uint64_t total_count = 0, page_count = 0;
-
-    // Read total write count (8 bytes)
-    for (uint8_t i = 0; i < 8; i++) {
-        uint8_t b = 0;
-        EEPROM_ReadByte(base + i, &b);
-        total_count |= ((uint64_t)b << (8 * i));
-    }
-
-    // Read per-page count (next 8 bytes)
-    for (uint8_t i = 0; i < 8; i++) {
-        uint8_t b = 0;
-        EEPROM_ReadByte(base + 8 + i, &b);
-        page_count |= ((uint64_t)b << (8 * i));
-    }
-
-    // If page reached max writes, move to next page
-    if (page_count >= MAX_WRITES_PER_PAGE) {
-        page_start = (page_start + 1) % NUM_FLAG_PAGES;
-        base = page_start * EEPROM_PAGE_SIZE;
-        page_count = 0;
-
-        // Re-read total count from new page (if needed you could carry it over)
-        for (uint8_t i = 0; i < 8; i++) {
-            uint8_t b = 0;
-            EEPROM_ReadByte(base + i, &b);
-            total_count |= ((uint64_t)b << (8 * i));
-        }
-    }
-
-    // Increment both counters
-    total_count++;
-    page_count++;
-
-    // Write total count (8 bytes)
-    for (uint8_t i = 0; i < 8; i++) {
-        EEPROM_WriteByte(base + i, (total_count >> (8 * i)) & 0xFF);
-    }
-
-    // Write per-page count (next 8 bytes)
-    for (uint8_t i = 0; i < 8; i++) {
-        EEPROM_WriteByte(base + 8 + i, (page_count >> (8 * i)) & 0xFF);
-    }
 
 
 uint64_t EEPROM_ReadUint64(uint16_t address) {
@@ -154,7 +104,7 @@ uint64_t EEPROM_ReadUint64(uint16_t address) {
 // Helper: Write uint64_t to EEPROM (big endian)
 bool EEPROM_WriteUint64(uint16_t address, uint64_t value) {
     for (int i = 7; i >= 0; --i) {
-        if (EEPROM_WriteByte(address + (7 - i), (uint8_t)(value >> (i * 8))) != HAL_OK)
+        if (EEPROM_WriteByte(address + (7 - i), (uint8_t)(value >> (i * 8))) != true)
             return false;
     }
     return true;
@@ -189,7 +139,7 @@ bool EEPROM_Write_Flag(uint8_t *data, uint8_t page_start) {
     if (!EEPROM_WriteUint64(current_page_addr, total_count + 1)) return false;
     if (!EEPROM_WriteUint64(current_page_addr + 8, page_count + 1)) return false;
     // Step 6: Write flag data (17th byte, index 16)
-    if (EEPROM_WriteByte(current_page_addr + 16, data[16]) != HAL_OK) return false;
+    if (EEPROM_WriteByte(current_page_addr + 16, data[16]) != true) return false;
     return true;
 }
 
