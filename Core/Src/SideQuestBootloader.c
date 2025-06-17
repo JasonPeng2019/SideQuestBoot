@@ -29,7 +29,7 @@ void SideQuestBootloader(void){
 
     case STATE_INIT: {
         bool LP_flag;
-        if (EEPROM_Read_Flag(&LP_flag, PAGE_LP_FLAG, &SideQuest->Boot_I2C_Handle)){
+        if (EEPROM_Read_Flag(&LP_flag, PAGE_LP_FLAG, SideQuest->Boot_I2C_Handle)){
             if (LP_flag == LOW_POWER){
                 printf("Low Power. Jumping to app");
                 jump_to_app(FLASH2_START);
@@ -37,21 +37,21 @@ void SideQuestBootloader(void){
         } else {break;}
 
         bool * id_flag_data;
-        if (EEPROM_ReadByte(PAGE_ID, id_flag_data, &SideQuest->Boot_I2C_Handle)){
+        if (EEPROM_ReadByte(PAGE_ID, id_flag_data, SideQuest->Boot_I2C_Handle)){
             if (*id_flag_data == false){
                 uint8_t random_bytes[30];
                 if (generate_random_bytes(random_bytes)){
                     uint16_t start_address = PAGE_ID;
                     bool new_flag = true;
-                    EEPROM_WriteByte(start_address, new_flag, &SideQuest->Boot_I2C_Handle);
+                    EEPROM_WriteByte(start_address, new_flag, SideQuest->Boot_I2C_Handle);
                     start_address += 1;
-                    EEPROM_WritePage(start_address, random_bytes, 30, &SideQuest->Boot_I2C_Handle);
+                    EEPROM_WritePage(start_address, random_bytes, 30, SideQuest->Boot_I2C_Handle);
                 } else {break;}
             }
         } else {break;}
 
         bool * crashed_flag;
-        if (EEPROM_Read_Flag(crashed_flag, PAGE_CRASH_FLAG, &SideQuest->Boot_I2C_Handle)){
+        if (EEPROM_Read_Flag(crashed_flag, PAGE_CRASH_FLAG, SideQuest->Boot_I2C_Handle)){
             if (crashed_flag == CRASHED){
                 SideQuest_State = STATE_STARTING_READ_FROM_STABLE
             } else {
@@ -64,7 +64,7 @@ void SideQuestBootloader(void){
 
     case STATE_VERIFY_UPDATE: {
         bool * update_ready_flag;
-        if (EEPROM_Read_Flag(PAGE_UPDATE_FLAG, update_ready_flag, &SideQuest->Boot_I2C_Handle)){
+        if (EEPROM_Read_Flag(PAGE_UPDATE_FLAG, update_ready_flag, SideQuest->Boot_I2C_Handle)){
             if (update_ready_flag == UPDATE_NEEDED) {
                 SideQuest_State = STATE_CHECK_FW;
             } else {
@@ -77,12 +77,12 @@ void SideQuestBootloader(void){
 
     case STATE_CHECK_FW:{
         bool * update_flag;
-        if (EEPROM_Read_Flag(update_flag, PAGE_UPDATE_FLAG, &SideQuest->Boot_I2C_Handle)){
+        if (EEPROM_Read_Flag(update_flag, PAGE_UPDATE_FLAG, SideQuest->Boot_I2C_Handle)){
             if (update_flag == UPDATE_NEEDED){
                 uint8_t fw_header[30];
                 memcpy(fw_header, UPDATE_IMAGE_START, 30);
                 uint8_t id_header[30];
-                if (EEPROM_Read(PAGE_ID + 1, id_header, 30, &SideQuest->Boot_I2C_Handle)){
+                if (EEPROM_Read(PAGE_ID + 1, id_header, 30, SideQuest->Boot_I2C_Handle)){
                     if (fw_header == id_header){
                         firmware_address = UPDATE_IMAGE_START;
                         SideQuest_State = STATE_ERASE_FLASH;
@@ -163,7 +163,7 @@ void SideQuestBootloader(void){
         uint32_t crc2 = HAL_CRC_Calculate(&hcrc, pSucess_write_marker, (BLOCKSIZE / 8) / (sizeof(uint32_t)))
         if (crc1 == crc2) {
             bool good_to_go = GOOD_TO_GO;
-            EEPROM_Write_Flag(good_to_go, PAGE_UPDATE_FLAG, &SideQuest->Boot_I2C_Handle)
+            EEPROM_Write_Flag(good_to_go, PAGE_UPDATE_FLAG, SideQuest->Boot_I2C_Handle)
         } else {
             SideQuest_State = STATE_ERROR;
         }
@@ -218,7 +218,7 @@ bool generate_random_bytes(uint8_t *buffer, uint32_t length) { //length should b
 void Bootloader_init(I2C_HandleTypeDef i2c_handle, UART_HandleTypeDef UART_Handle){
     SideQuest->Boot_I2C_Handle = i2c_handle;
     SideQuest->Boot_UART_Handle = UART_Handle;
-    UART_SetHandle(&SideQuest->Boot_UART_Handle);
+    UART_SetHandle(SideQuest->Boot_UART_Handle);
     SideQuest_State = STATE_INIT;
 }
 
