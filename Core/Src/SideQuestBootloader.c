@@ -7,6 +7,7 @@ SideQuestBootloader.c v0.00
 
 #include "../Inc/SideQuestBootloader.h"
 #include "main.c"
+#include <stm32l476xx.h>
 
 /* Define start and end symbols for UPDATE_IMG */
 // __update_img_start__ = ORIGIN(UPDATE_IMG);
@@ -50,12 +51,12 @@ SideQuestBootloader.c v0.00
 // #define FLASH1_STABLE_FW_BASE  0x08020000U  // Stable firmware partition
 // #define FLASH1_FLAGS_BASE      0x08030000U  // Flags partition
 
-
+uint32_t ptr = (uint32_t *)firmware_address; // .c file when you initialize ---- firmware address for reading the data
+#DEFINE (uint_t *)0x08080000 // firmwarer address for writing/programming data
 
 Bootstate SideQuest_State;
 
-void SideQuestBootloader(void){
-
+void SideQuestBootloader(void){    
     switch (SideQuest_State){
 
     case STATE_INIT:
@@ -120,12 +121,13 @@ void SideQuestBootloader(void){
     case STATE_MOVING_BLOCK: {
         bool success = false;
         int retries = 0;
-        while (retries < MAX_RETRIES && !success) {
+        while (retries < MAX_TRIES && !success) {
             if (write_flash64(APP_FLASH_BASE + cursor, buffer)) {
-                uint32_t crc1 = HAL_CRC_Calculate(&CRC_HANDLE, start_address, cursor + BLOCKSIZE);
-                uint32_t crc2 = HAL_CRC_Calculate(&CRC_HANDLE, start_address, cursor + BLOCKSIZE);
+                uint32_t crc1 = HAL_CRC_Accumulate(&hcrc, success_read_marker, (BLOCKSIZE / 8) / (sizeof(uint32_t)));
+                uint32_t crc2 = HAL_CRC_Accumulate(&hcrc, success_read_marker, (BLOCKSIZE / 8) / (sizeof(uint32_t)));
                 if (crc1 == crc2) {
-                    cursor += BLOCK_SIZE;
+                    success_read_marker += BLOCKSIZE;
+                    cursor += BLOCKSIZE;
                     success = true;
                 }
             }
@@ -141,11 +143,11 @@ void SideQuestBootloader(void){
     }
 
     case STATE_FINAL_CHECKSUM: {
-        uint32_t crc1 = HAL_CRC_Calculate(&CRC_HANDLE, start_address, cursor);
-        uint32_t crc2 = HAL_CRC_Calculate(&CRC_HANDLE, APP_FLASH_BASE, cursor);
+        uint32_t crc1 = HAL_CRC_Accumulate(&hcrc, start_address, cursor);
+        uint32_t crc2 = HAL_CRC_Accumulate(&hcrc, APP_FLASH_BASE, cursor);
         HAL_FLASH_Lock();  // Done writing
         if (crc1 == crc2) {
-            // Optionally update flag in flash2 that update completed
+            // Need to properly change flags with the eeprom stuff
             flash2_flags.good_to_go = true;
             flash2_flags.update_ready = false;
             current_state = STATE_JUMP_TO_APP;
