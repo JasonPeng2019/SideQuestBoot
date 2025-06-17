@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "stm32l4xx_hal.h"
 #include "../Drivers/UART/UART.c"
+#include "../Drivers/EEPROM/EEPROM.h"
 #include <string.h>
 #include <stdbool.h>
 
@@ -10,9 +11,10 @@ uint32_t success_read_marker;
 #define BLOCKSIZE           64U
 #define MAX_TRIES           8
 #define HEADER_SIZE         60
+#define BANK_SIZE           524288 // bank size in bytes
 
 
-@define GOOD_TO_GO      1
+#define GOOD_TO_GO      1
 #define UPDATE_NEEDED   0
 
 
@@ -25,11 +27,12 @@ uint32_t success_read_marker;
 
 #define PAGE_ID                      0
 #define PAGE_CRASH_FLAG              1
-#define UPDATE_NEEDED_FLAG           4  
+#define PAGE_UPDATE_FLAG             4  
 
 typedef enum {
     STATE_INIT,
     STATE_VERIFY_UPDATE,
+    STATE_CHECK_FW,
     STATE_STARTING_READ_FROM_STABLE,
     STATE_ERASE_FLASH,
     STATE_READ_BLOCK,

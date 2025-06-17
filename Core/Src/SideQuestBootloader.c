@@ -53,55 +53,78 @@ SideQuestBootloader.c v0.00
 
 
 Bootstate SideQuest_State;
+static copyBuffer[64]
 
 void SideQuestBootloader(void){
 
     switch (SideQuest_State){
 
-    case STATE_INIT:
-        // This should be the flash2_flags, where do we set the crash flag?
-        HAL_FLASH_Unlock();
-        uint8_t random_bytes[60];
-        if (generate_random_bytes(random_bytes)){
-
-        }
-
-
-        if (flashread_crash_flag == CRASHED) {
-            SideQuest_State = STATE_STARTING_READ_FROM_STABLE;
-        } else {
-            SideQuest_State = STATE_VERIFY_UPDATE;
-        }
-        break;
-
-    case STATE_VERIFY_UPDATE: {
-        if (flashread_update_needed == UPDATE_NEEDED) {
-            *flashwrite_update_needed = UPDATE_NEEDED;
-
-            uint64_t fw_header;
-            memcpy(&fw_header, (void*)UPDATE_PARTITION, HEADER_SIZE);
-            if (fw_header == deviceID &&
-                fw_header == flash2_flags.device_id) {
-                start_address = FLASH1_UPDATE_FW_BASE;
-                current_state = STATE_ERASE_FLASH;
-            } else {
-                current_state = STATE_JUMP_TO_APP;
+    case STATE_INIT: {
+        bool * id_flag_data;
+        if (EEPROM_ReadByte(PAGE_ID, id_flag_data)){
+            if (*id_flag_data == false){
+                uint8_t random_bytes[30];
+                if (generate_random_bytes(random_bytes)){
+                    uint16_t start_address = PAGE_ID;
+                    bool new_flag = true;
+                    EEPROM_WriteByte(start_address, &new_flag, 1);
+                    start_address += 1;
+                    EEPROM_WriteByte(start_address, random_bytes, 30)
+                } else {break;}
             }
-        } else {
-            current_state = STATE_JUMP_TO_APP;
-        }
+        } else {break;}
+
+        bool * crashed_flag;
+        if (EEPROM_Read_Flag(crashed_flag, PAGE_CRASH_FLAG)){
+            if (crashed_flag == CRASHED){
+                SideQuest_State = STATE_STARTING_READ_FROM_STABLE
+            } else {
+                SideQuest_State = STATE_VERIFY_UPDATE;
+            }
+        } else {break;}
+        
         break;
     }
 
+    case STATE_VERIFY_UPDATE: {
+        bool * update_ready_flag;
+        if (EEPROM_Read_Flag(PAGE_UPDATE_FLAG, update_ready_flag)){
+            if (update_ready_flag == UPDATE_NEEDED) {
+                current_state = STATE_CHECK_FW;
+            } else {
+                current_state = STATE_JUMP_TO_APP;
+            }
+        } else {break;}
+
+        break;
+    }
+
+    case STATE_CHECK_FW:{
+        bool * update_flag;
+        if (EEPROM_Read_Flag(update_flag, PAGE_UPDATE_FLAG)){
+            if (update_flag == UPDATE_NEEDED){
+                uint8_t fw_header[30];
+                memcpy(fw_header, UPDATE_IMAGE_START, 30);
+                uint8_t id_header[30];
+                if (EEPROM_ReadByte(PAGE_ID + 1, id_header, 30)){
+                    if (fw_header == id_header){
+                        SideQuest_State = STATE_ERASE_FLASH
+                    }
+                } else {break;}
+            }
+        } else {break;}
+
+        break;
+    }
     case STATE_STARTING_READ_FROM_STABLE:
-        start_address = FLASH1_STABLE_FW_BASE;
+        firmware_address = UPDATE_IMAGE_START;
         current_state = STATE_ERASE_FLASH;
         break;
 
     case STATE_ERASE_FLASH:
-        if (erase_flash_partition(APP_FLASH_BASE, FLASH_SIZE)) {
-            cursor = 0;
+        if (erase_flash_partition(FLASH2_START, BANK_SIZE)) {
             HAL_FLASH_Unlock();  // Unlock before writing
+            // initiate variables here instead of on top;
             current_state = STATE_READ_BLOCK;
         } else {
             current_state = STATE_ERROR;
@@ -109,12 +132,16 @@ void SideQuestBootloader(void){
         break;
 
     case STATE_READ_BLOCK:
-        memcpy(&buffer, (void*)(start_address + cursor), BLOCK_SIZE);
-        if (buffer == EOF_MARKER) {
-            current_state = STATE_FINAL_CHECKSUM;
-        } else {
-            current_state = STATE_MOVING_BLOCK;
-        }
+        if (memcpy(copyBuffer, pfirmware_address, BLOCK_SIZE)){
+            pfirmware_address += BLOCK_SIZE;
+            if (buffer == EOF_MARKER) {
+                current_state = STATE_FINAL_CHECKSUM;
+            } else {
+                current_state = STATE_MOVING_BLOCK;
+            }
+            break;
+        } else {break;}
+
         break;
 
     case STATE_MOVING_BLOCK: {
@@ -176,15 +203,15 @@ void SideQuestBootloader(void){
 
 
 
-HAL_StatusTypeDef generate_random_bytes(uint8_t *buffer, uint32_t length) { //length should be 30
+bool generate_random_bytes(uint8_t *buffer, uint32_t length) { //length should be 30
     if (buffer == NULL || length == 0) {
-        return HAL_ERROR;
+        return false;
     }
 
     uint32_t random32;
     for (uint32_t i = 0; i < length; i += 4) {
         if (HAL_RNG_GenerateRandomNumber(&hrng, &random32) != HAL_OK) {
-            return HAL_ERROR;
+            return false;
         }
 
         buffer[i] = random32 & 0xFF;
@@ -193,5 +220,5 @@ HAL_StatusTypeDef generate_random_bytes(uint8_t *buffer, uint32_t length) { //le
         if (i + 3 < length) buffer[i + 3] = (random32 >> 24) & 0xFF;
     }
 
-    return HAL_OK;
+    return true;
 }
