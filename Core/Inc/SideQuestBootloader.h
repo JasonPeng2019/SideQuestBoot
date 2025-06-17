@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "stm32l4xx_hal.h"
 #include "../Drivers/EEPROM/EEPROM.h"
+#include "../Drivers/UART/UART.c"
 #include "flags.h"
 #include <string.h>
 #include <stdbool.h>
@@ -44,20 +45,9 @@ typedef struct {
     I2C_HandleTypeDef   Boot_I2C_Handle;
 } tBootloader;
 
-#include "../Drivers/UART/UART.c"
 
+void Bootloader_init(I2C_HandleTypeDef i2c_handle, UART_HandleTypeDef UART_Handle);
+void SideQuestBootloader(void); 
 
-void SideQuestBoot_delay_ms(uint32_t ms);
-// for flags: flash 1 is ReadOnly, flash2 is WriteOnly
-bool SideQuestBoot_read_flag(uint32_t flag_addr); // read the flags in flash 1 
-bool SideQuestBoot_write_flag(uint32_t flag_addr, bool value); // to write to the flags in flash 2
-
-void SideQuestBootloader(void) // need to fill in params
-
-bool SideQuestBoot_write_block(uint32_t address, uint8_t * data, uint32_t size);
-bool SideQuestBoot_erase_flash_partition(uint32_t base_addr, uint32_t size);
-uint32_t SideQuestBoot_calculate_crc(uint32_t addr, uint32_t length);
-uint32_t SideQuestBoot_accumulate_crc(uint32_t addr, uint32_t prev_accum_crc); //prev_crc is the crc of the previous accumulated blocks
-void SideQuestBoot_init_crc();
 
 

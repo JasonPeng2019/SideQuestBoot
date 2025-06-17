@@ -107,6 +107,8 @@ int main(void)
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
 
+  Bootloader_init(hi2c1, huart2);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -116,6 +118,7 @@ int main(void)
   {
     /* USER CODE END WHILE */
     SideQuestBootloader();
+    HAL_IWDG_Refresh(&hiwdg); 
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */

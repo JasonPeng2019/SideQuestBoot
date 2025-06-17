@@ -20,14 +20,19 @@ static uint32_t * pSuccess_read_marker;
 //pointer at the address of dest we have successfully copied
 static uint32_t * pSucess_write_marker;
 Bootstate SideQuest_State;
-static tBootloader SideQuest_storage;
-tBootloader *SideQuest = &SideQuest_storage;
+
+tBootloader *SideQuest
 
 void SideQuestBootloader(void){    
     
     switch (SideQuest_State){
 
     case STATE_INIT: {
+        if (__HAL_RCC_GET_FLAG(RCC_FLAG_IWDGRST)){
+            bool crash_Flag = CRASHED;
+            EEPROM_Write_Flag(crash_Flag, PAGE_CRASH_FLAG, SideQuest->Boot_I2C_Handle);
+        } else {break;}
+
         bool LP_flag;
         if (EEPROM_Read_Flag(&LP_flag, PAGE_LP_FLAG, SideQuest->Boot_I2C_Handle)){
             if (LP_flag == LOW_POWER){
@@ -179,7 +184,7 @@ void SideQuestBootloader(void){
         if (firmware_address == STABLE_IMAGE_START) {
         #ifdef DEBUG_MODE:
             while (1) { // in deploy, make it jump to app instead;
-                UART_Print("FLASH FAILED\n");
+                printf("FLASH FAILED\n");
                 delay_ms(5000);
                 }
         #endif
@@ -216,10 +221,39 @@ bool generate_random_bytes(uint8_t *buffer, uint32_t length) { //length should b
 }
 
 void Bootloader_init(I2C_HandleTypeDef i2c_handle, UART_HandleTypeDef UART_Handle){
+    SideQuest = (tBootloader *)malloc(sizeof(tBootloader));
     SideQuest->Boot_I2C_Handle = i2c_handle;
     SideQuest->Boot_UART_Handle = UART_Handle;
     UART_SetHandle(SideQuest->Boot_UART_Handle);
     SideQuest_State = STATE_INIT;
 }
 
-void jump_to_app(uint32_t * address_start)
+void jump_to_app(uint32_t * address_start){
+    if (Valid_FW_Check){
+        HAL_UART_DeInit(SideQuest->Boot_I2C_Handle);
+        HAL_UART_DeInit(SideQuest->Boot_UART_Handle);
+        HAL_CRC_DeInit(hcrc);
+        HAL_RCC_DeInit();
+        HAL_DeInit();
+        SysTick->CTRL = 0;
+        SysTick->LOAD = 0;
+        SysTick->VAL  = 0;
+        uint32_t appStack = *(volatile uint32_t*)FLASH2_START;
+        uint32_t appResetHandler = *(volatile uint32_t*)(FLASH2_START + 4);
+
+        __set_MSP(appStack);
+
+        // Jump to application
+        pFunction appEntry = (pFunction)appResetHandler;
+        appEntry();
+    } else {
+        printf("BOOT Failed - invalid App FW");
+        SideQuest_State = STATE_ERROR;
+        return;
+    }
+
+}
+
+void Valid_FW_Check(){
+    return ((((*(uint32_t*)FLASH2_START) - SRAM1_BASE) <= SRAM1_SIZE_MAX)? TRUE : FALSE)
+}
