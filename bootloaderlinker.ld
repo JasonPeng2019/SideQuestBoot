@@ -4,6 +4,7 @@
 ** @file        : bootloaderlinker.ld
 **
 ** @author      : buh07
+** @Collabrators: Jason.p
 **
 **  Abstract    : Linker script for NUCLEO-L476RG Board embedding STM32L476RGTx Device from stm32l4 series
 **                      1024KBytes FLASH

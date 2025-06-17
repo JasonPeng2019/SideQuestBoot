@@ -2,12 +2,12 @@
 #include "stm32l4xx_hal.h"
 #include "../Drivers/UART/UART.c"
 #include "../Drivers/EEPROM/EEPROM.h"
+#include "flags.h"
 #include <string.h>
 #include <stdbool.h>
 
-uint32_t cursor;
-uint32_t success_read_marker;
-uint32_t firmware_address;
+
+
 
 
 #define BLOCKSIZE           64U
@@ -17,23 +17,15 @@ uint32_t firmware_address;
 
 #define FLASH2_START         0x08080000
 
-uint32_t *psuccess_read_marker;
-uint32_t *pfirmware_address;
 
-#define GOOD_TO_GO      1
-#define UPDATE_NEEDED   0
-
-
-#define CRASHED         1
-#define NO_CRASH        0
 
 
 #define UPDATE_IMAGE_START      ((uint32_t)&__update_img_start__) // fill in here
 #define STABLE_IMAGE_START       ((uint32_t)&__backup_app_start__)// fill in here
 
-#define PAGE_ID                      0
-#define PAGE_CRASH_FLAG              1
-#define PAGE_UPDATE_FLAG             4  
+
+
+#define EOF_MARKER                   0xDEADBEEF
 
 typedef enum {
     STATE_INIT,
@@ -47,6 +39,11 @@ typedef enum {
     STATE_JUMP_TO_APP,
     STATE_ERROR
 } BootState;
+
+typedef struct {
+    UART_HandleTypeDef  Boot_UART_Handle;
+    I2C_HandleTypeDef   Boot_I2C_Handle;
+} tBootloader;
 
 
 void SideQuestBoot_delay_ms(uint32_t ms);

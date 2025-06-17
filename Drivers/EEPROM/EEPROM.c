@@ -1,11 +1,20 @@
 /**
- * @Jason P
+ * @Author: Jason P
  * 6/16/2026
  * EEPROM.h for SideQuestBootloader v0.00
  * 
  */
 
 #include "EEPROM.h"
+
+/**
+ * Memory Map:
+ * Page 0: Byte 0: Flag set - ID written (Set 1x)
+ *      Bytes 1-30: Device ID (Set 1x)
+ * Page 1-3: Crash Flag - device last shutdown cause
+ * Page 4-6: Good to go flag - is device ready to go to main app or does need firmware update
+ * Page 7-9: Low Power Flag
+ */
 
 
 /**
@@ -14,13 +23,13 @@
  * @params: data: data buffer (1 byte) to copy byte from
  * @return: Status of Operation
  */
-bool EEPROM_WriteByte(uint16_t memAddress, uint8_t data) {
+bool EEPROM_WriteByte(uint16_t memAddress, uint8_t data, I2C_HandleTypeDef i2c_handle) {
     uint8_t buffer[3];
     buffer[0] = (uint8_t)(memAddress >> 8); // High byte
     buffer[1] = (uint8_t)(memAddress & 0xFF); // Low byte
     buffer[2] = data;
 
-    return HAL_I2C_Master_Transmit(&hi2c1, M24_I2C_ADDR, buffer, 3, EEPROM_TIMEOUT) == HAL_OK;
+    return HAL_I2C_Master_Transmit(&i2c_handle, M24_I2C_ADDR, buffer, 3, EEPROM_TIMEOUT) == HAL_OK;
 }
 
 /**
@@ -29,7 +38,7 @@ bool EEPROM_WriteByte(uint16_t memAddress, uint8_t data) {
  * @params: data: data buffer (1 byte) to copy byte to
  * @return: Status of Operation
  */
-bool EEPROM_ReadByte(uint16_t memAddress, uint8_t *data) {
+bool EEPROM_ReadByte(uint16_t memAddress, uint8_t *data, I2C_HandleTypeDef i2c_handle) {
     uint8_t addr[2];
     addr[0] = (uint8_t)(memAddress >> 8);
     addr[1] = (uint8_t)(memAddress & 0xFF);

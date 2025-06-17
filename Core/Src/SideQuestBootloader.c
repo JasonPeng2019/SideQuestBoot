@@ -5,66 +5,36 @@ Collaborators: Olir.E
 SideQuestBootloader.c v0.00
 */
 
+#define DEBUG_MODE
+
 #include "../Inc/SideQuestBootloader.h"
 #include "main.c"
 #include <stm32l476xx.h>
 
-/* Define start and end symbols for UPDATE_IMG */
-// __update_img_start__ = ORIGIN(UPDATE_IMG);
-// __update_img_end__   = ORIGIN(UPDATE_IMG) + LENGTH(UPDATE_IMG);
+//to do: set IWDG script, link IWDG
+// need to prepad the block with 0's at the end when saving from BLE
 
-// ########################### -- FLAGS -- ##################################
-// /*
-// Memory Map of Flash 2 Flags:
-// Bytes 0-60 of Page 1: Header Set in Main App; Device ID
-// Page 2: Header Set in Main App
-// Page 3: Crash flag
-// Crash 62: Good-to-go flag (Update needed) - see .h file for definitions
-// */
-
-// // structure of flags:
-// // When changing flags: ALWAYS do *flag = NEW_STATUS
-
-// PROVIDE(_flash_flags = ORIGIN(B1_FLAGS));
-// extern const uint8_t _flash_flags[];
-
-// //read flags
-// flashread_crash_flag = _flash_flags[61];
-// flashread_update_needed = _flash_flags[62];
-
-// //write flags
-// # define FLASH2FLAG_ADDRESS      0x08078000; // 32 KB from the end of Flash Bank 2 - double check w Ben on linker
-// #define EEPROM_PAGE_SIZE      0x800       // 2 KB
-// #define EEPROM_NUM_PAGES      8
-// uint8_t * flashwrite_crash_flag = (volatile uint8_t*)(FLASH2FLAG_ADDRESS + 61);
-// uint8_t * flashwrite_update_needed = (volatile uint8_t*)(FLASH2FLAG_ADDRESS  + 62);
-
-// ########################### ###############  ##################################
-
-
-// these need to be externs as defined in linker, not defined here
-// #define APP_FLASH_BASE         0x08080000U  // App location in Flash2
-// #define FLASH_SIZE             0x10000      // Size of app region to erase
-// #define FLASH2_FLAGS_BASE      0x08090000U  // Flags parition in Flash2
-// // TO DO: Need to have a separate partition for the FLASH2_FLAGS_BASE
-// #define FLASH1_UPDATE_FW_BASE  0x08010000U  // Firmware update partition
-// #define FLASH1_STABLE_FW_BASE  0x08020000U  // Stable firmware partition
-// #define FLASH1_FLAGS_BASE      0x08030000U  // Flags partition
-uint32_t copy_firmware_addr = firmware_address;
-//address of the firmware to be copied
-uint32_t *pfirmware_address = (uint32_t *)copy_firmware_addr;
-//pointer at the address in memory where we have successfully copied`
-uint32_t *psuccess_read_marker = (uint32_t *)success_read_marker;
-//pointer at the start of the main program 
-uint32_t *pflash2_start = (uint32_t *)FLASH2_START;
-
+static uint32_t firmware_address;
+//pointer at the address in src we have successfully copied`
+static uint32_t * pSuccess_read_marker;
+//pointer at the address of dest we have successfully copied
+static uint32_t * pSucess_write_marker;
 Bootstate SideQuest_State;
-static copyBuffer[64]
+tBootloader SideQuest;
 
 void SideQuestBootloader(void){    
+    
     switch (SideQuest_State){
 
     case STATE_INIT: {
+        bool LP_flag;
+        if (EEPROM_Read_Flag(LP_flag, PAGE_LP_FLAG)){
+            if (LP_flag == LOW_POWER){
+                printf("Low Power. Jumping to app");
+                jump_to_app(FLASH2_START);
+            }
+        } else {break;}
+
         bool * id_flag_data;
         if (EEPROM_ReadByte(PAGE_ID, id_flag_data)){
             if (*id_flag_data == false){
@@ -95,9 +65,9 @@ void SideQuestBootloader(void){
         bool * update_ready_flag;
         if (EEPROM_Read_Flag(PAGE_UPDATE_FLAG, update_ready_flag)){
             if (update_ready_flag == UPDATE_NEEDED) {
-                current_state = STATE_CHECK_FW;
+                SideQuest_State = STATE_CHECK_FW;
             } else {
-                current_state = STATE_JUMP_TO_APP;
+                SideQuest_State = STATE_JUMP_TO_APP;
             }
         } else {break;}
 
@@ -113,7 +83,10 @@ void SideQuestBootloader(void){
                 uint8_t id_header[30];
                 if (EEPROM_ReadByte(PAGE_ID + 1, id_header, 30)){
                     if (fw_header == id_header){
-                        SideQuest_State = STATE_ERASE_FLASH
+                        firmware_address = UPDATE_IMAGE_START;
+                        SideQuest_State = STATE_ERASE_FLASH;
+                    } else {
+                        SideQuest_State = STATE_JUMP_TO_APP
                     }
                 } else {break;}
             }
@@ -121,52 +94,54 @@ void SideQuestBootloader(void){
 
         break;
     }
-    case STATE_STARTING_READ_FROM_STABLE:
-        firmware_address = UPDATE_IMAGE_START;
-        current_state = STATE_ERASE_FLASH;
-        break;
 
-    case STATE_ERASE_FLASH:
+    case STATE_STARTING_READ_FROM_STABLE:{
+        firmware_address = STABLE_IMAGE_START;
+        SideQuest_State = STATE_ERASE_FLASH;
+        break;
+    }
+
+    case STATE_ERASE_FLASH:{
         if (erase_flash_partition(FLASH2_START, BANK_SIZE)) {
-            HAL_FLASH_Unlock();  // Unlock before writing
-            // initiate variables here instead of on top;
-            current_state = STATE_READ_BLOCK;
+            HAL_FLASH_Unlock(); 
+            uint32_t copy_firmware_addr = firmware_address;
+            pSuccess_read_marker = (uint32_t *)copy_firmware_addr;
+            pSucess_write_marker = (uint32_t *)FLASH2_START;
+
+            SideQuest_State = STATE_MOVING_BLOCK;
         } else {
-            current_state = STATE_ERROR;
+            SideQuest_State = STATE_ERROR;
         }
         break;
+    }
 
-    case STATE_READ_BLOCK:
-        if (memcpy(copyBuffer, pfirmware_address, BLOCK_SIZE)){
-            pfirmware_address += BLOCK_SIZE;
-            if (buffer == EOF_MARKER) {
-                current_state = STATE_FINAL_CHECKSUM;
-            } else {
-                current_state = STATE_MOVING_BLOCK;
-            }
-            break;
-        } else {break;}
-
+    case STATE_READ_BLOCK:{
+        if (pSuccess_read_marker[0] == EOF_MARKER) {  
+            SideQuest_State = STATE_FINAL_CHECKSUM;
+        } else {
+            SideQuest_State = STATE_MOVING_BLOCK;
+        }
         break;
+    }
 
     case STATE_MOVING_BLOCK: {
         bool success = false;
         int retries = 0;
         while (retries < MAX_TRIES && !success) {
-            //make a copy of pfirmware_address and use it to get the next 64 bits of data
-            uint32_t *copy_pfirmware_address = psuccess_read_marker;
-            uint64_t data64 = ((uint64_t)copy_pfirmware_address[1] << 32) | copy_pfirmware_address[0];
-            if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD, pflash2_start, data64);) {
-                uint32_t crc1 = HAL_CRC_Accumulate(&hcrc, psuccess_read_marker, (BLOCKSIZE / 8) / (sizeof(uint32_t)));
-                uint32_t crc2 = HAL_CRC_Accumulate(&hcrc, pflash2_start, (BLOCKSIZE / 8) / (sizeof(uint32_t)));
+            //make a copy of pfirmware_success_marker and use it to get the next 64 bits of data
+            uint32_t * copy_psuccess_marker = pSuccess_read_marker;
+            uint64_t data64 = ((uint64_t)copy_psuccess_marker[1] << 32) | copy_psuccess_marker[0];
+            if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD, pSucess_write_marker, data64);) {
+                uint32_t crc1 = HAL_CRC_Accumulate(&hcrc, pSuccess_read_marker, (BLOCKSIZE / 8) / (sizeof(uint32_t)));
+                uint32_t crc2 = HAL_CRC_Accumulate(&hcrc, pSucess_write_marker, (BLOCKSIZE / 8) / (sizeof(uint32_t)));
                 #ifdef DEBUG_MODE
-                    uint32_t crc1 = HAL_CRC_Calculate(&hcrc, psuccess_read_marker, (BLOCKSIZE / 8) / (sizeof(uint32_t)));
-                    uint32_t crc2 = HAL_CRC_Calculate(&hcrc, pflash2_start, (BLOCKSIZE / 8) / (sizeof(uint32_t)));
+                    uint32_t crc1 = HAL_CRC_Calculate(&hcrc, pSuccess_read_marker, (BLOCKSIZE / 8) / (sizeof(uint32_t)));
+                    uint32_t crc2 = HAL_CRC_Calculate(&hcrc, pSucess_write_marker, (BLOCKSIZE / 8) / (sizeof(uint32_t)));
                 #endif
                 if (crc1 == crc2) {
                     // if crc check passes increment pointers in each flash
-                    psuccess_read_marker += BLOCKSIZE / (sizeof(uint32_t));
-                    pflash2_start += BLOCKSIZE / (sizeof(uint32_t));
+                    pSuccess_read_marker += (BLOCKSIZE / (sizeof(uint32_t)));
+                    pSucess_write_marker += (BLOCKSIZE / (sizeof(uint32_t)));
                     success = true;
                 }
             }
@@ -174,59 +149,47 @@ void SideQuestBootloader(void){
         }
 
         if (success) {
-            current_state = STATE_READ_BLOCK;
+            SideQuest_State = STATE_READ_BLOCK;
         } else {
-            current_state = STATE_ERROR;
+            SideQuest_State = STATE_ERROR;
         }
         break;
     }
 
     case STATE_FINAL_CHECKSUM: {
-        bool success = false;
-        int retries = 0;
-        while (retries < MAX_TRIES && !success) {
-            //make a copy of pfirmware_address and use it to get the next 64 bits of data
-            uint32_t *copy_pfirmware_address = psuccess_read_marker;
-            uint64_t data64 = ((uint64_t)copy_pfirmware_address[1] << 32) | copy_pfirmware_address[0];
-            if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD, pflash2_start, data64);) {
-                uint32_t crc1 = HAL_CRC_Accumulate(&hcrc, psuccess_read_marker, (BLOCKSIZE / 8) / (sizeof(uint32_t)));
-                uint32_t crc2 = HAL_CRC_Accumulate(&hcrc, pflash2_start, (BLOCKSIZE / 8) / (sizeof(uint32_t)));
-                #ifdef DEBUG_MODE
-                    uint32_t crc1 = HAL_CRC_Calculate(&hcrc, psuccess_read_marker, (BLOCKSIZE / 8) / (sizeof(uint32_t)));
-                    uint32_t crc2 = HAL_CRC_Calculate(&hcrc, pflash2_start, (BLOCKSIZE / 8) / (sizeof(uint32_t)));
-                #endif
-                HAL_FLASH_Lock();  // Done writing
-                if (crc1 == crc2) {
-                    // Need to properly change flags with the eeprom write flag
-                    flash2_flags.good_to_go = true;
-                    flash2_flags.update_ready = false;
-                    current_state = STATE_JUMP_TO_APP;
-                } else {
-                    current_state = STATE_ERROR;
-                }
-            }
-            retries++;
+        HAL_FLASH_Lock();  // Done writing
+        uint32_t crc1 = HAL_CRC_Calculate(&hcrc, pSuccess_read_marker, (BLOCKSIZE / 8) / (sizeof(uint32_t)));
+        uint32_t crc2 = HAL_CRC_Calculate(&hcrc, pSucess_write_marker, (BLOCKSIZE / 8) / (sizeof(uint32_t)))
+        if (crc1 == crc2) {
+            bool good_to_go = GOOD_TO_GO;
+            EEPROM_Write_Flag(good_to_go, PAGE_UPDATE_FLAG)
+        } else {
+            SideQuest_State = STATE_ERROR;
         }
         break;
     }
 
-    case STATE_JUMP_TO_APP:
-        jump_to_app(APP_FLASH_BASE);
+    case STATE_JUMP_TO_APP: {
+        jump_to_app(FLASH2_START);
         break;
+    }
 
-    case STATE_ERROR:
-        if (start_address == FLASH1_STABLE_FW_BASE) {
-            while (1) {
+    case STATE_ERROR: {
+        if (firmware_address == STABLE_IMAGE_START) {
+        #ifdef DEBUG_MODE:
+            while (1) { // in deploy, make it jump to app instead;
                 UART_Print("FLASH FAILED\n");
                 delay_ms(5000);
-            }
+                }
+        #endif
+            jump_to_app(FLASH2_START);
         } else {
-            start_address = FLASH1_STABLE_FW_BASE;
-            current_state = STATE_ERASE_FLASH;
+        firmware_address = STABLE_IMAGE_START;
+        SideQuest_State = STATE_ERASE_FLASH;
         }
-        break;
+    break;
     }
-}
+}}
 
 
 
@@ -250,3 +213,11 @@ bool generate_random_bytes(uint8_t *buffer, uint32_t length) { //length should b
 
     return true;
 }
+
+void Bootloader_init(I2C_HandleTypeDef i2c_handle, UART_HandleTypeDef UART_Handle){
+    SideQuest->Boot_I2C_Handle = i2c_handle;
+    SideQuest->Boot_UART_Handle = UART_Handle;
+    SideQuest_State = STATE_INIT;
+}
+
+void jump_to_app(uint32_t * address_start)
