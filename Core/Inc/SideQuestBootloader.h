@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include "stm32l4xx_hal.h"
-#include "../Drivers/UART/UART.c"
 #include "../Drivers/EEPROM/EEPROM.h"
 #include "flags.h"
 #include <string.h>
@@ -44,6 +43,8 @@ typedef struct {
     UART_HandleTypeDef  Boot_UART_Handle;
     I2C_HandleTypeDef   Boot_I2C_Handle;
 } tBootloader;
+
+#include "../Drivers/UART/UART.c"
 
 
 void SideQuestBoot_delay_ms(uint32_t ms);
