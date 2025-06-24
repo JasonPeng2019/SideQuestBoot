@@ -1,0 +1,2 @@
+../Drivers/UART/UART.c:10:6:UART_SetHandle	1
+../Drivers/UART/UART.c:14:5:__io_putchar	2

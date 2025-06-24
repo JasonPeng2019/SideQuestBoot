@@ -1,0 +1,9 @@
+../Drivers/EEPROM/EEPROM.c:26:6:EEPROM_WriteByte	32	static
+../Drivers/EEPROM/EEPROM.c:41:6:EEPROM_ReadByte	40	static
+../Drivers/EEPROM/EEPROM.c:59:6:EEPROM_WritePage	104	static
+../Drivers/EEPROM/EEPROM.c:78:6:EEPROM_Read	40	static
+../Drivers/EEPROM/EEPROM.c:93:6:EEPROM_WaitReady	24	static
+../Drivers/EEPROM/EEPROM.c:103:10:EEPROM_ReadUint64	48	static
+../Drivers/EEPROM/EEPROM.c:114:6:EEPROM_WriteUint64	48	static
+../Drivers/EEPROM/EEPROM.c:122:6:EEPROM_Write_Flag	104	static
+../Drivers/EEPROM/EEPROM.c:155:6:EEPROM_Read_Flag	56	static

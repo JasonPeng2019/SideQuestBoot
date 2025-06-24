@@ -19,6 +19,8 @@
 #ifndef STM32L4xx_HAL_FLASH_H
 #define STM32L4xx_HAL_FLASH_H
 
+
+
 #ifdef __cplusplus
  extern "C" {
 #endif

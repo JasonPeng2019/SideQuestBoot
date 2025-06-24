@@ -12,6 +12,7 @@
 #define NUM_FLAG_PAGES        3
 #define MAX_WRITES_PER_PAGE   25000
 #define FLAG_RECORD_SIZE      3
+#define EEPROM_TIMEOUT 100
 
 bool EEPROM_WriteByte(uint16_t memAddress, uint8_t data, I2C_HandleTypeDef *i2c_handle);
 bool EEPROM_ReadByte(uint16_t memAddress, uint8_t *data, I2C_HandleTypeDef *i2c_handle);

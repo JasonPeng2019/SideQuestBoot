@@ -108,6 +108,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   Bootloader_init(hi2c1, huart2);
+  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 
   /* USER CODE END 2 */
 

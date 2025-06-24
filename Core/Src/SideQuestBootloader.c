@@ -23,6 +23,7 @@ static uint32_t * pSuccess_read_marker;
 //pointer at the address of dest we have successfully copied
 static uint32_t * pSuccess_write_marker;
 BootState SideQuest_State;
+FLASH_EraseInitTypeDef * pEraseInit;
 
 tBootloader *SideQuest;
 
@@ -31,7 +32,8 @@ void SideQuestBootloader(void){
     switch (SideQuest_State){
 
     case STATE_INIT: {
-        if (__HAL_RCC_GET_FLAG(RCC_FLAG_IWDGRST)){
+    	uint8_t IWDG_Flag = __HAL_RCC_GET_FLAG(RCC_FLAG_IWDGRST);
+        if (IWDG_Flag){
             uint8_t crash_Flag = CRASHED;
             EEPROM_Write_Flag(&crash_Flag, PAGE_CRASH_FLAG, &SideQuest->Boot_I2C_Handle);
         } else {break;}
@@ -73,6 +75,7 @@ void SideQuestBootloader(void){
     case STATE_VERIFY_UPDATE: {
         uint8_t update_ready_flag;
         if (EEPROM_Read_Flag(&update_ready_flag, PAGE_UPDATE_FLAG, &SideQuest->Boot_I2C_Handle)){
+        	update_ready_flag = UPDATE_NEEDED;//comment out later; for debugging
             if (update_ready_flag == UPDATE_NEEDED) {
                 SideQuest_State = STATE_CHECK_FW;
             } else {
@@ -111,7 +114,12 @@ void SideQuestBootloader(void){
     }
 
     case STATE_ERASE_FLASH:{
-        if (erase_flash_partition(FLASH2_START, BANK_SIZE)) {
+        pEraseInit->TypeErase = FLASH_TYPEERASE_PAGES;
+        pEraseInit->Banks = FLASH_BANK_2;
+        pEraseInit->Page = 0;
+        pEraseInit->NbPages = 120;
+        uint32_t * Error_Var;
+        if (HAL_FLASHEx_Erase(pEraseInit, Error_Var)) {
             HAL_FLASH_Unlock(); 
             uint32_t copy_firmware_addr = firmware_address;
             pSuccess_read_marker = (uint32_t *)copy_firmware_addr;
@@ -144,8 +152,8 @@ void SideQuestBootloader(void){
                 uint32_t crc1 = HAL_CRC_Accumulate(&hcrc, pSuccess_read_marker, (BLOCKSIZE / 8) / (sizeof(uint32_t)));
                 uint32_t crc2 = HAL_CRC_Accumulate(&hcrc, pSuccess_write_marker, (BLOCKSIZE / 8) / (sizeof(uint32_t)));
                 #ifdef DEBUG_MODE
-                    uint32_t crc1 = HAL_CRC_Calculate(&hcrc, pSuccess_read_marker, (BLOCKSIZE / 8) / (sizeof(uint32_t)));
-                    uint32_t crc2 = HAL_CRC_Calculate(&hcrc, pSuccess_write_marker, (BLOCKSIZE / 8) / (sizeof(uint32_t)));
+                    crc1 = HAL_CRC_Calculate(&hcrc, pSuccess_read_marker, (BLOCKSIZE / 8) / (sizeof(uint32_t)));
+                    crc2 = HAL_CRC_Calculate(&hcrc, pSuccess_write_marker, (BLOCKSIZE / 8) / (sizeof(uint32_t)));
                 #endif
                 if (crc1 == crc2) {
                     // if crc check passes increment pointers in each flash
@@ -188,7 +196,7 @@ void SideQuestBootloader(void){
         #ifdef DEBUG_MODE:
             while (1) { // in deploy, make it jump to app instead;
                 printf("FLASH FAILED\n");
-                delay_ms(5000);
+                HAL_Delay(5000);
                 }
         #endif
             jump_to_app(FLASH2_START);

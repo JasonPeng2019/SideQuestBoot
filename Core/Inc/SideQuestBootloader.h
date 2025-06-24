@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include "stm32l4xx_hal.h"
+#include "stm32l4xx_hal_flash.h"
 #include "../../Drivers/EEPROM/EEPROM.h"
-#include "../../Drivers/UART/UART.c"
+#include "../../Drivers/UART/UART.h"
 #include "flags.h"
 #include <string.h>
 #include <stdbool.h>
@@ -18,15 +19,17 @@
 
 #define FLASH2_START         0x08080000
 
+#define PGS_ERASE           120
+
 
 
 
 #define UPDATE_IMAGE_START      ((uint32_t)&__update_img_start__) // fill in here
-#define STABLE_IMAGE_START       ((uint32_t)&__backup_app_start__)// fill in here
+#define STABLE_IMAGE_START       ((uint32_t)&__stable_app_start__)// fill in here
 
 
 extern uint32_t __update_img_start__;
-extern uint32_t __backup_app_start__;
+extern uint32_t __stable_app_start__;
 
 
 #define EOF_MARKER                   0xDEADBEEF

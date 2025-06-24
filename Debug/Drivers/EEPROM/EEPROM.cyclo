@@ -1,0 +1,9 @@
+../Drivers/EEPROM/EEPROM.c:26:6:EEPROM_WriteByte	1
+../Drivers/EEPROM/EEPROM.c:41:6:EEPROM_ReadByte	2
+../Drivers/EEPROM/EEPROM.c:59:6:EEPROM_WritePage	3
+../Drivers/EEPROM/EEPROM.c:78:6:EEPROM_Read	2
+../Drivers/EEPROM/EEPROM.c:93:6:EEPROM_WaitReady	3
+../Drivers/EEPROM/EEPROM.c:103:10:EEPROM_ReadUint64	3
+../Drivers/EEPROM/EEPROM.c:114:6:EEPROM_WriteUint64	3
+../Drivers/EEPROM/EEPROM.c:122:6:EEPROM_Write_Flag	8
+../Drivers/EEPROM/EEPROM.c:155:6:EEPROM_Read_Flag	3

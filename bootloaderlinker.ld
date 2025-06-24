@@ -1,28 +1,27 @@
 /*
 ******************************************************************************
 **
-** @file        : bootloaderlinker.ld
+** @file        : bootloaderlinker_bank1.ld
 **
 ** @author      : buh07
-** @Collabrators: Jason.p
+** @Collaborators: Jason.p
 **
-**  Abstract    : Linker script for NUCLEO-L476RG Board embedding STM32L476RGTx Device from stm32l4 series
-**                      1024KBytes FLASH
-**                      96KBytes RAM
-**                      32KBytes RAM2
+**  Abstract    : Linker script for NUCLEO-L476RG Board embedding STM32L476RGTx Device
+**                placing Bootloader, Update Image, and Stable App partitions
+**                in Flash Bank 1 (0x08000000 – 0x0807FFFF).
+**
+**                1024 KB FLASH total (Bank1 = first 512 KB at 0x08000000; Bank2 = next 512 KB).
+**                96 KB RAM, 32 KB RAM2.
 **
 **                Set heap size, stack size and stack location according
-**                to application requirements for the bootloader.
+**                to application requirements for each build.
 **
-**                Styled after the STM32CubeIDE generated linker script
-**
-******************************************************************************
-*/
+******************************************************************************/
 
-/* Entry Point */
+/* Entry Point for Bootloader build */
 ENTRY(Reset_Handler)
 
-/* Stack pointer initialization */
+/* Stack pointer initialization (in RAM) */
 _estack = ORIGIN(RAM) + LENGTH(RAM);
 
 /* Heap and Stack sizes */
@@ -32,70 +31,55 @@ _Min_Stack_Size = 0x400;   /* 1 KB */
 /* === MEMORY REGIONS === */
 MEMORY
 {
-  /* === FLASH BANK 1 === */
-  /* MAIN_APPLICATION occupies the full 512 KB of Bank 1 */
-  MAIN_APP   (rw)  : ORIGIN = 0x08000000, LENGTH = 512K
+  /* === FLASH BANK 1: 0x0800_0000 – 0x0807_FFFF (512 KB) === */
+  /* Partition Bootloader: first 32 KB */
+  BOOTLOADER   (rx)  : ORIGIN = 0x08000000, LENGTH = 32K
 
-  /* === FLASH BANK 2 === */
-  /* BOOTLOADER occupies the first 32 KB of Bank 2 */
-  BOOTLOADER (rx)  : ORIGIN = 0x08080000, LENGTH = 32K
+  /* Partition Update Image: next 240 KB */
+  UPDATE_IMG   (rx)  : ORIGIN = 0x08008000, LENGTH = 240K
 
-  /* UPDATE_IMG follows BOOTLOADER (32K offset), 240 KB */
-  UPDATE_IMG (r)  : ORIGIN = 0x08088000, LENGTH = 240K
-
-  /* BACKUP_APP follows UPDATE_IMG (240K offset), 240 KB */
-  BACKUP_APP (r)  : ORIGIN = 0x080C8000, LENGTH = 240K
-
-  /*
-   * Note:
-   * 0x08080000 — FLASH Bank 2 Start
-   *   +0x8000   — BOOTLOADER
-   *   +0x3C000  — UPDATE_IMG
-   *   +0x3C000  — BACKUP_APP
-   * => 0x08080000 + 32K + 240K + 240K = 0x08100000 (end of Bank 2, 512 KB total)
-   */
+  /* Partition Stable App: following Update Image, 240 KB */
+  STABLE_APP   (rx)  : ORIGIN = 0x08044000, LENGTH = 240K
 
   /* === SRAM === */
-  RAM        (xrw) : ORIGIN = 0x20000000, LENGTH = 96K     /* Main SRAM */
-  RAM2       (xrw) : ORIGIN = 0x10000000, LENGTH = 32K     /* Additional RAM */
+  RAM          (xrw) : ORIGIN = 0x20000000, LENGTH = 96K     /* Main SRAM */
+  RAM2         (xrw) : ORIGIN = 0x10000000, LENGTH = 32K     /* Additional SRAM (e.g. DTCM or Backup RAM) */
 }
 
 /* Sections */
 SECTIONS
 {
-  /* Exported symbols for memory regions */
-  __main_app_start__     = ORIGIN(MAIN_APP);
-  __main_app_end__       = ORIGIN(MAIN_APP) + LENGTH(MAIN_APP);
-  __main_app_size__      = LENGTH(MAIN_APP);
-
+  /* Exported symbols for partitions & RAM */
   __bootloader_start__   = ORIGIN(BOOTLOADER);
   __bootloader_size__    = LENGTH(BOOTLOADER);
 
   __update_img_start__   = ORIGIN(UPDATE_IMG);
   __update_img_size__    = LENGTH(UPDATE_IMG);
 
-  __backup_app_start__   = ORIGIN(BACKUP_APP);
-  __backup_app_size__    = LENGTH(BACKUP_APP);
+  __stable_app_start__   = ORIGIN(STABLE_APP);
+  __stable_app_size__    = LENGTH(STABLE_APP);
 
   __ram_start__          = ORIGIN(RAM);
   __ram_size__           = LENGTH(RAM);
   __ram2_start__         = ORIGIN(RAM2);
   __ram2_size__          = LENGTH(RAM2);
 
-  /* The startup code into BOOTLOADER flash region */
+  /* ===== BOOTLOADER region sections =====
+     When building the Bootloader, direct code/data here.
+     For Update or Stable App builds, adapt to direct into UPDATE_IMG or STABLE_APP.
+  */
   .isr_vector :
   {
     . = ALIGN(4);
-    KEEP(*(.isr_vector)) /* Startup code */
+    KEEP(*(.isr_vector)) /* Vector table for Bootloader */
     . = ALIGN(4);
   } >BOOTLOADER
 
-  /* The program code and other data into BOOTLOADER */
   .text :
   {
     . = ALIGN(4);
-    *(.text)           /* .text sections (code) */
-    *(.text*)          /* .text* sections (code) */
+    *(.text)           /* Code */
+    *(.text*)          /* Additional text sections */
     *(.glue_7)
     *(.glue_7t)
     *(.eh_frame)
@@ -160,7 +144,7 @@ SECTIONS
     . = ALIGN(4);
   } >BOOTLOADER
 
-  /* Used by the startup to initialize data */
+  /* Data load address for .data in RAM */
   _sidata = LOADADDR(.data);
 
   .data :
@@ -198,6 +182,7 @@ SECTIONS
     . = ALIGN(8);
   } >RAM
 
+  /* Discard standard libs if linked in inadvertently; Bootloader should avoid heavy libs */
   /DISCARD/ :
   {
     libc.a ( * )
@@ -207,3 +192,31 @@ SECTIONS
 
   .ARM.attributes 0 : { *(.ARM.attributes) }
 }
+
+/* 
+  === How to adapt for Update Image or Stable App builds ===
+
+  - For Update Image build:
+    • Change ENTRY(…) if needed (entry is Reset_Handler in update image).
+    • In MEMORY, direct FLASH to only UPDATE_IMG region:
+        MEMORY {
+          UPDATE_IMG (rx) : ORIGIN = 0x08008000, LENGTH = 240K
+          RAM        (xrw): ORIGIN = 0x20000000, LENGTH = 96K
+          RAM2       (xrw): ORIGIN = 0x10000000, LENGTH = 32K
+        }
+    • In SECTIONS, replace all `>BOOTLOADER` with `>UPDATE_IMG`, and vector table section uses KEEP(*(.isr_vector)) so vector table is at 0x08008000.
+    • The application’s startup code will copy .data from LOADADDR (flash) into RAM as usual.
+
+  - For Stable App build:
+    • Similarly, MEMORY with STABLE_APP region:
+        MEMORY {
+          STABLE_APP (rx) : ORIGIN = 0x08044000, LENGTH = 240K
+          RAM and RAM2 unchanged
+        }
+    • SECTIONS: direct to STABLE_APP.
+    • ENTRY is Reset_Handler in stable application; vector table placed at 0x08044000.
+
+  - You may maintain three separate linker scripts (e.g., `bootloader_bank1.ld`, `update_bank1.ld`, `stable_bank1.ld`), each with the appropriate MEMORY/SECTIONS settings. This is the cleanest approach.
+*/
+
+/* End of linker script */

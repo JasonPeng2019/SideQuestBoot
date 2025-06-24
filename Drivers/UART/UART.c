@@ -1,6 +1,8 @@
 #include "stdio.h"
 #include "stm32l4xx_hal.h"
 
+#ifndef UART_DEF
+#define UART_DEF		0
 #define HAL_MAX_DELAY 1000
 
 static UART_HandleTypeDef *g_uart_handle = NULL;
@@ -16,3 +18,4 @@ int __io_putchar(int ch) {
     return ch;
 }
 
+#endif
