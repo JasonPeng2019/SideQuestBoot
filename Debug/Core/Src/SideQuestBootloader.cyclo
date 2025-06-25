@@ -1,5 +1,5 @@
 ../Core/Src/SideQuestBootloader.c:30:6:SideQuestBootloader	35
-../Core/Src/SideQuestBootloader.c:219:6:generate_random_bytes	8
-../Core/Src/SideQuestBootloader.c:239:6:Bootloader_init	1
-../Core/Src/SideQuestBootloader.c:247:6:jump_to_app	2
-../Core/Src/SideQuestBootloader.c:273:6:Valid_FW_Check	1
+../Core/Src/SideQuestBootloader.c:218:6:generate_random_bytes	8
+../Core/Src/SideQuestBootloader.c:238:6:Bootloader_init	1
+../Core/Src/SideQuestBootloader.c:253:6:jump_to_app	2
+../Core/Src/SideQuestBootloader.c:279:6:Valid_FW_Check	1

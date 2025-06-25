@@ -25,7 +25,7 @@ static uint32_t * pSuccess_write_marker;
 BootState SideQuest_State;
 FLASH_EraseInitTypeDef * pEraseInit;
 
-tBootloader *SideQuest;
+tBootloader * SideQuest;
 
 void SideQuestBootloader(void){    
     
@@ -119,13 +119,9 @@ void SideQuestBootloader(void){
     }
 
     case STATE_ERASE_FLASH:{
-        pEraseInit->TypeErase = FLASH_TYPEERASE_PAGES;
-        pEraseInit->Banks = FLASH_BANK_2;
-        pEraseInit->Page = 0;
-        pEraseInit->NbPages = 120;
-        uint32_t * Error_Var;
+        uint32_t Error_Var = 0;
         HAL_FLASH_Unlock();
-        if (HAL_FLASHEx_Erase(pEraseInit, Error_Var) == HAL_OK) {
+        if (HAL_FLASHEx_Erase(&pEraseInit, &Error_Var) == HAL_OK) {
             uint32_t copy_firmware_addr = firmware_address;
             pSuccess_read_marker = (uint32_t *)copy_firmware_addr;
             pSuccess_write_marker = (uint32_t *)FLASH2_START;
@@ -133,6 +129,7 @@ void SideQuestBootloader(void){
         } else {
             SideQuest_State = STATE_ERROR;
         }
+        HAL_FLASH_Lock();
         break;
     }
 
@@ -146,6 +143,7 @@ void SideQuestBootloader(void){
     }
 
     case STATE_MOVING_BLOCK: {
+    	HAL_FLASH_Unlock();
         bool success = false;
         int retries = 0;
         while (retries < MAX_TRIES && !success) {
@@ -174,6 +172,7 @@ void SideQuestBootloader(void){
         } else {
             SideQuest_State = STATE_ERROR;
         }
+        HAL_FLASH_Lock();
         break;
     }
 
@@ -240,6 +239,13 @@ void Bootloader_init(I2C_HandleTypeDef i2c_handle, UART_HandleTypeDef UART_Handl
     SideQuest = (tBootloader *)malloc(sizeof(tBootloader));
     SideQuest->Boot_I2C_Handle = i2c_handle;
     SideQuest->Boot_UART_Handle = UART_Handle;
+
+    pEraseInit = (FLASH_EraseInitTypeDef *)malloc(sizeof(FLASH_EraseInitTypeDef));
+    pEraseInit->TypeErase = FLASH_TYPEERASE_PAGES;
+	pEraseInit->Banks = FLASH_BANK_2;
+	pEraseInit->Page = 0;
+	pEraseInit->NbPages = 120;
+
     UART_SetHandle(&SideQuest->Boot_UART_Handle);
     SideQuest_State = STATE_INIT;
 }
