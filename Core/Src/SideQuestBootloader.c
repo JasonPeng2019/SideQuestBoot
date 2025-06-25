@@ -33,10 +33,11 @@ void SideQuestBootloader(void){
 
     case STATE_INIT: {
     	uint8_t IWDG_Flag = __HAL_RCC_GET_FLAG(RCC_FLAG_IWDGRST);
+    	IWDG_Flag = false; // comment out later
         if (IWDG_Flag){
             uint8_t crash_Flag = CRASHED;
             EEPROM_Write_Flag(&crash_Flag, PAGE_CRASH_FLAG, &SideQuest->Boot_I2C_Handle);
-        } else {break;}
+        }
 
         uint8_t LP_flag;
         if (EEPROM_Read_Flag(&LP_flag, PAGE_LP_FLAG, &SideQuest->Boot_I2C_Handle)){
@@ -62,6 +63,7 @@ void SideQuestBootloader(void){
 
         uint8_t crashed_flag;
         if (EEPROM_Read_Flag(&crashed_flag, PAGE_CRASH_FLAG, &SideQuest->Boot_I2C_Handle)){
+        	crashed_flag = NO_CRASH; // comment out later
             if (crashed_flag == CRASHED){
                 SideQuest_State = STATE_STARTING_READ_FROM_STABLE;
             } else {
@@ -89,12 +91,15 @@ void SideQuestBootloader(void){
     case STATE_CHECK_FW:{
         uint8_t update_flag;
         if (EEPROM_Read_Flag(&update_flag, PAGE_UPDATE_FLAG, &SideQuest->Boot_I2C_Handle)){
+        	update_flag = UPDATE_NEEDED; //comment out later + add IWDG
             if (update_flag == UPDATE_NEEDED){
                 uint8_t fw_header[30];
                 memcpy(fw_header, UPDATE_IMAGE_START, 30);
                 uint8_t id_header[30];
                 if (EEPROM_Read(PAGE_ID + 1, id_header, 30, &SideQuest->Boot_I2C_Handle)){
-                    if (memcmp(fw_header, id_header, sizeof(fw_header)) == 0){
+                	bool fw_verified = memcmp(fw_header, id_header, sizeof(fw_header)) == 0;
+                	fw_verified = true;
+                    if (fw_verified){
                         firmware_address = UPDATE_IMAGE_START;
                         SideQuest_State = STATE_ERASE_FLASH;
                     } else {
@@ -124,7 +129,6 @@ void SideQuestBootloader(void){
             uint32_t copy_firmware_addr = firmware_address;
             pSuccess_read_marker = (uint32_t *)copy_firmware_addr;
             pSuccess_write_marker = (uint32_t *)FLASH2_START;
-
             SideQuest_State = STATE_MOVING_BLOCK;
         } else {
             SideQuest_State = STATE_ERROR;

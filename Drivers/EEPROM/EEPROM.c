@@ -120,7 +120,7 @@ bool EEPROM_WriteUint64(uint16_t address, uint64_t value, I2C_HandleTypeDef *i2c
 }
 
 bool EEPROM_Write_Flag(uint8_t *data, uint8_t page_start, I2C_HandleTypeDef *i2c_handle) {
-    uint64_t highest_page_count = 0;
+     uint64_t highest_page_count = 0;
     int current_page_index = 0;
     // Step 1: Determine current page based on page write count
     for (int i = 0; i < 3; ++i) {

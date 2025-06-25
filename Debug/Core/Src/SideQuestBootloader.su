@@ -1,5 +1,5 @@
 ../Core/Src/SideQuestBootloader.c:30:6:SideQuestBootloader	192	static
-../Core/Src/SideQuestBootloader.c:214:6:generate_random_bytes	24	static
-../Core/Src/SideQuestBootloader.c:234:6:Bootloader_init	8	static
-../Core/Src/SideQuestBootloader.c:242:6:jump_to_app	32	static,ignoring_inline_asm
-../Core/Src/SideQuestBootloader.c:268:6:Valid_FW_Check	4	static
+../Core/Src/SideQuestBootloader.c:218:6:generate_random_bytes	24	static
+../Core/Src/SideQuestBootloader.c:238:6:Bootloader_init	8	static
+../Core/Src/SideQuestBootloader.c:246:6:jump_to_app	32	static,ignoring_inline_asm
+../Core/Src/SideQuestBootloader.c:272:6:Valid_FW_Check	4	static
