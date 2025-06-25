@@ -121,7 +121,7 @@ void SideQuestBootloader(void){
     case STATE_ERASE_FLASH:{
         uint32_t Error_Var = 0;
         HAL_FLASH_Unlock();
-        if (HAL_FLASHEx_Erase(&pEraseInit, &Error_Var) == HAL_OK) {
+        if (HAL_FLASHEx_Erase(pEraseInit, &Error_Var) == HAL_OK) {
             uint32_t copy_firmware_addr = firmware_address;
             pSuccess_read_marker = (uint32_t *)copy_firmware_addr;
             pSuccess_write_marker = (uint32_t *)FLASH2_START;
@@ -159,8 +159,8 @@ void SideQuestBootloader(void){
                 #endif
                 if (crc1 == crc2) {
                     // if crc check passes increment pointers in each flash
-                    pSuccess_read_marker += (BLOCKSIZE / (sizeof(uint32_t)));
-                    pSuccess_write_marker += (BLOCKSIZE / (sizeof(uint32_t)));
+                    pSuccess_read_marker += ((BLOCKSIZE/8) / (sizeof(uint32_t)));
+                    pSuccess_write_marker += ((BLOCKSIZE/8) / (sizeof(uint32_t)));
                     success = true;
                 }
             }
@@ -197,7 +197,7 @@ void SideQuestBootloader(void){
     case STATE_ERROR: {
     	HAL_FLASH_Lock();
         if (firmware_address == STABLE_IMAGE_START) {
-        #ifdef DEBUG_MODE:
+        #ifdef DEBUG_MODE
             while (1) { // in deploy, make it jump to app instead;
                 printf("FLASH FAILED\n");
                 HAL_Delay(5000);
