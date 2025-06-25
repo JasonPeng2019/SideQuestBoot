@@ -124,8 +124,8 @@ void SideQuestBootloader(void){
         pEraseInit->Page = 0;
         pEraseInit->NbPages = 120;
         uint32_t * Error_Var;
-        if (HAL_FLASHEx_Erase(pEraseInit, Error_Var)) {
-            HAL_FLASH_Unlock(); 
+        HAL_FLASH_Unlock();
+        if (HAL_FLASHEx_Erase(pEraseInit, Error_Var) == HAL_OK) {
             uint32_t copy_firmware_addr = firmware_address;
             pSuccess_read_marker = (uint32_t *)copy_firmware_addr;
             pSuccess_write_marker = (uint32_t *)FLASH2_START;
@@ -196,6 +196,7 @@ void SideQuestBootloader(void){
     }
 
     case STATE_ERROR: {
+    	HAL_FLASH_Lock();
         if (firmware_address == STABLE_IMAGE_START) {
         #ifdef DEBUG_MODE:
             while (1) { // in deploy, make it jump to app instead;
